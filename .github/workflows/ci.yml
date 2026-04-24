@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -34,8 +38,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        go: ["1.23", "1.24"]
+        os: ${{ github.event_name == 'push' && fromJson('["ubuntu-latest","macos-latest"]') || fromJson('["ubuntu-latest"]') }}
+        go: ${{ github.event_name == 'push' && fromJson('["1.23","1.24"]') || fromJson('["1.23"]') }}
     steps:
       - uses: actions/checkout@v4
 
