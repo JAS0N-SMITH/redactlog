@@ -15,6 +15,50 @@ See:
 
 Coming in M9.
 
+Quick reference for the loop you'll run repeatedly:
+
+```bash
+# Fast local loop
+go test -short ./...
+
+# Full local loop (pre-push)
+go test -race ./...
+golangci-lint run
+govulncheck ./...
+
+# Format everything
+golangci-lint fmt
+
+# Coverage
+go test -race -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out           # open in browser
+go tool cover -func=coverage.out | tail -1  # summary line
+
+# Benchmarks (local, for benchstat before/after)
+go test -run=^$ -bench=. -benchmem -count=10 ./redact > bench-before.txt
+# ... make changes ...
+go test -run=^$ -bench=. -benchmem -count=10 ./redact > bench-after.txt
+go install golang.org/x/perf/cmd/benchstat@latest
+benchstat bench-before.txt bench-after.txt
+
+# Fuzz a single target locally
+go test -run=^$ -fuzz=FuzzRedactWalk -fuzztime=30s ./redact
+
+# Update a single dependency
+go get github.com/felixge/httpsnoop@latest && go mod tidy
+
+# Tidy and check for drift
+go mod tidy && git diff go.mod go.sum
+
+# Preview pkg.go.dev rendering locally
+pkgsite -http :6060
+# then open http://localhost:6060/github.com/JAS0N-SMITH/redactlog
+
+# Tag a release (pre-v1)
+git tag -s v0.1.0 -m "v0.1.0: redact engine complete (M2)"
+git push origin v0.1.0
+```
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).

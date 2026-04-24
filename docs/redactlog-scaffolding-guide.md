@@ -973,20 +973,20 @@ Or visit [pkg.go.dev/github.com/JAS0N-SMITH/redactlog](https://pkg.go.dev/github
 
 Before inviting Claude Code, confirm:
 
-- [ ] `go build ./...` succeeds with no errors
-- [ ] `go vet ./...` is clean
-- [ ] `golangci-lint run` is clean
-- [ ] `govulncheck ./...` is clean
-- [ ] `go mod tidy` produces no diff
-- [ ] CI on GitHub is green for the initial commit
-- [ ] `docs/` contains `architecture.md`, `roadmap.md`, `ADR-001.md` through `ADR-008.md`, `v2-ideas.md`
-- [ ] `CLAUDE.md` is at the repo root
-- [ ] `LICENSE` contains the Apache 2.0 text
-- [ ] `SECURITY.md` has your actual email (not `<TODO>`)
-- [ ] `go.mod` declares `go 1.23` and lists `httpsnoop`, `gin`, `semconv/v1.26.0` as direct deps
-- [ ] The `bench/` directory has its own `go.mod`
-- [ ] `.gitignore`, `.editorconfig`, `.golangci.yml` are present
-- [ ] GitHub Dependabot is enabled (the `.github/dependabot.yml` file triggers it)
+- [x] `go build ./...` succeeds with no errors
+- [x] `go vet ./...` is clean
+- [x] `golangci-lint run` is clean
+- [x] `govulncheck ./...` is clean
+- [x] `go mod tidy` produces no diff
+- [x] CI on GitHub is green for the initial commit
+- [x] `docs/` contains `architecture.md`, `roadmap.md`, `ADR-001.md` through `ADR-008.md`, `v2-ideas.md`
+- [x] `CLAUDE.md` is at the repo root
+- [x] `LICENSE` contains the Apache 2.0 text
+- [x] `SECURITY.md` has your actual email (not `<TODO>`)
+- [x] `go.mod` declares `go 1.25` and lists `httpsnoop`, `gin`, `semconv/v1.26.0` as direct deps
+- [x] The `bench/` directory has its own `go.mod`
+- [x] `.gitignore`, `.editorconfig`, `.golangci.yml` are present
+- [x] GitHub Dependabot is enabled (the `.github/dependabot.yml` file triggers it)
 
 If every box is ticked, you're ready.
 

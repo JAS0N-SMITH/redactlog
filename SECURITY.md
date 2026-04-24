@@ -11,8 +11,7 @@
 
 Please do **not** file public GitHub issues for security problems.
 
-Use GitHub's private vulnerability reporting (Security tab → Report a vulnerability)
-or email `security@<TODO>`.
+Use GitHub's private vulnerability reporting (Security tab → Report a vulnerability).
 
 You should receive a response within 48 hours. A confirmed fix will be published
 within 14 days of confirmation, coordinated with you for disclosure.
