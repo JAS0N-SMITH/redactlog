@@ -1,0 +1,28 @@
+# Binaries
+*.test
+*.out
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build cache
+/dist/
+/bin/
+
+# Coverage
+coverage.out
+coverage.html
+
+# Fuzz caches (we commit seed corpora only)
+testdata/fuzz/**/.fuzz-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.envrc
