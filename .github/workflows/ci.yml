@@ -18,7 +18,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
@@ -41,7 +41,7 @@ jobs:
         os: ${{ github.event_name == 'push' && fromJson('["ubuntu-latest","macos-latest"]') || fromJson('["ubuntu-latest"]') }}
         go: ${{ github.event_name == 'push' && fromJson('["1.23","1.24"]') || fromJson('["1.23"]') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
@@ -59,7 +59,7 @@ jobs:
     name: govulncheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
