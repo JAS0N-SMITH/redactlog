@@ -1,4 +1,4 @@
-module github.com/jas0n-smith/redactlog
+module github.com/JAS0N-SMITH/redactlog
 
 go 1.25.9
 

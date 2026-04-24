@@ -42,7 +42,7 @@ Before starting, confirm you have:
 | Go | 1.23 or newer | `go version` |
 | Git | any recent | `git --version` |
 | A GitHub account | — | — |
-| A GitHub repo created at `github.com/jas0n-smith/redactlog` | empty | — |
+| A GitHub repo created at `github.com/JAS0N-SMITH/redactlog` | empty | — |
 
 **Installing Go**: if you don't have 1.23+, download from [go.dev/dl](https://go.dev/dl/). Gin v1.12+ and recent slog tooling require 1.23 as a floor.
 
@@ -156,13 +156,13 @@ git config tag.gpgsign true
 ## 4. Initialize the Go module
 
 ```bash
-go mod init github.com/jas0n-smith/redactlog
+go mod init github.com/JAS0N-SMITH/redactlog
 ```
 
 Then pin the Go version. Open the generated `go.mod` and replace its content:
 
 ```go
-module github.com/jas0n-smith/redactlog
+module github.com/JAS0N-SMITH/redactlog
 
 go 1.25.9
 ```
@@ -288,7 +288,7 @@ The `bench/` directory is its own module so benchmark deps don't pollute `go.mod
 
 ```bash
 cd bench
-go mod init github.com/jas0n-smith/redactlog/bench
+go mod init github.com/JAS0N-SMITH/redactlog/bench
 
 cat > doc.go <<'EOF'
 // Package bench contains comparative benchmarks against zap, zerolog, and
@@ -493,7 +493,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/jas0n-smith/redactlog
+        - github.com/JAS0N-SMITH/redactlog
 EOF
 ```
 
@@ -804,7 +804,7 @@ about: Something behaving incorrectly
 labels: bug
 ---
 
-**Version**: (output of `go list -m github.com/jas0n-smith/redactlog`)
+**Version**: (output of `go list -m github.com/JAS0N-SMITH/redactlog`)
 
 **What happened**:
 
@@ -947,7 +947,7 @@ Push to GitHub:
 git push origin main
 ```
 
-Verify CI runs green at `github.com/jas0n-smith/redactlog/actions`.
+Verify CI runs green at `github.com/JAS0N-SMITH/redactlog/actions`.
 
 ### Optional: tag v0.0.1 to verify module proxy
 
@@ -962,10 +962,10 @@ Then wait 5 minutes and verify pkg.go.dev sees the module:
 
 ```bash
 # Should succeed without error:
-go list -m github.com/jas0n-smith/redactlog@v0.0.1
+go list -m github.com/JAS0N-SMITH/redactlog@v0.0.1
 ```
 
-Or visit [pkg.go.dev/github.com/jas0n-smith/redactlog](https://pkg.go.dev/github.com/jas0n-smith/redactlog) in a browser. If the page doesn't exist, click "Request" on pkg.go.dev to trigger a crawl.
+Or visit [pkg.go.dev/github.com/JAS0N-SMITH/redactlog](https://pkg.go.dev/github.com/JAS0N-SMITH/redactlog) in a browser. If the page doesn't exist, click "Request" on pkg.go.dev to trigger a crawl.
 
 ---
 
@@ -1053,7 +1053,7 @@ go mod tidy && git diff go.mod go.sum
 
 # Preview pkg.go.dev rendering locally
 pkgsite -http :6060
-# then open http://localhost:6060/github.com/jas0n-smith/redactlog
+# then open http://localhost:6060/github.com/JAS0N-SMITH/redactlog
 
 # Tag a release (pre-v1)
 git tag -s v0.1.0 -m "v0.1.0: redact engine complete (M2)"

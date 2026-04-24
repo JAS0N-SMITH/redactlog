@@ -20,7 +20,7 @@ Create a dedicated `gin/` subpackage (`package gin`, imported as `redactgin` at 
 ## Consequences
 
 - Gin and `net/http` users get identical redaction behavior by construction — there is no separate code path to maintain or diverge.
-- `go get github.com/jas0n-smith/redactlog` does not drag in `gin-gonic/gin` for users who only use the `net/http` middleware. They import `gin/` explicitly.
+- `go get github.com/JAS0N-SMITH/redactlog` does not drag in `gin-gonic/gin` for users who only use the `net/http` middleware. They import `gin/` explicitly.
 - The "gin imports only in `gin/`" rule is enforceable via a CI script (`scripts/check-gin-scope.sh`).
 - `gin.BodyBytesKey` cache integration and `c.Copy()` goroutine guidance are documented in the `gin/` package godoc.
 - Panic recovery ordering (register `gin.Recovery()` after `redactgin.New(h)`) is documented; incorrect ordering causes the middleware to log a 200 on a panicking request.

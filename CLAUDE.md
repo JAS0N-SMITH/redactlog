@@ -51,7 +51,7 @@ It is **not** a general-purpose audit system. It does not do tamper-evident chai
 
 | Fact | Value |
 | --- | --- |
-| Module path | `github.com/jas0n-smith/redactlog` |
+| Module path | `github.com/JAS0N-SMITH/redactlog` |
 | Minimum Go | 1.25.9 |
 | License | Apache-2.0 |
 | Target release | v1.0.0, ~12 weeks solo, evenings/weekends |
@@ -218,7 +218,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 
 - **Formatting**: `gofmt` + `gofumpt` + `goimports`, enforced by `golangci-lint run` (config at `.golangci.yml`). Do not fight the formatter.
 - **Line length**: soft 100, hard 120. Break long function signatures one argument per line.
-- **Imports**: three groups separated by blank lines — stdlib, third-party, internal. `goimports -local github.com/jas0n-smith/redactlog` handles this.
+- **Imports**: three groups separated by blank lines — stdlib, third-party, internal. `goimports -local github.com/JAS0N-SMITH/redactlog` handles this.
 - **File naming**: `snake_case` for multi-word files (`response_writer.go`, not `responseWriter.go`). One logical concept per file; split when a file crosses ~500 LOC.
 - **Package comments** live in `doc.go`, not at the top of an arbitrary file.
 - **Godoc on every exported symbol.** First sentence starts with the symbol name, ends with a period:

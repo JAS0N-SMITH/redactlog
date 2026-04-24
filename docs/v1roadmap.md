@@ -42,7 +42,7 @@ If W12 slips, v1.0.0 tags land by end of W14. That's the ceiling.
 - **Hours.** 8 · **Calendar.** 1 week
 - **Dependencies.** None.
 - **Deliverables.**
-  - `github.com/jas0n-smith/redactlog` repo created, `go.mod` declaring Go **1.23** (gin v1.12.0 requires 1.23+; the architecture doc's 1.22+ floor is tightened at the gin subpackage only — see §Tooling below).
+  - `github.com/JAS0N-SMITH/redactlog` repo created, `go.mod` declaring Go **1.23** (gin v1.12.0 requires 1.23+; the architecture doc's 1.22+ floor is tightened at the gin subpackage only — see §Tooling below).
   - `LICENSE` (Apache-2.0), `README.md` (one-paragraph placeholder + quick-start skeleton), `.gitignore`, `.editorconfig`.
   - Package stubs: `redactlog/`, `redact/`, `httpmw/`, `gin/`, `internal/trie/`, `internal/walker/`, each with a `doc.go` containing the package comment from the architecture doc §2.
   - `.github/workflows/ci.yml` running lint + test matrix (Go 1.23/1.24/1.25 × ubuntu/macos/windows).
@@ -50,7 +50,7 @@ If W12 slips, v1.0.0 tags land by end of W14. That's the ceiling.
   - `CHANGELOG.md` with an `## [Unreleased]` section.
   - `docs/` folder with the 8 ADRs copied from the design doc.
 - **Risks.** CI yak-shaving; golangci-lint v2 config syntax trips you up.
-- **Definition of done.** Green CI on an empty commit; `go vet`, `golangci-lint run`, `govulncheck ./...` all clean; pkg.go.dev can theoretically resolve the module path (validate by running `GOPROXY=https://proxy.golang.org go list -m github.com/jas0n-smith/redactlog@latest` once the first tag exists in M2).
+- **Definition of done.** Green CI on an empty commit; `go vet`, `golangci-lint run`, `govulncheck ./...` all clean; pkg.go.dev can theoretically resolve the module path (validate by running `GOPROXY=https://proxy.golang.org go list -m github.com/JAS0N-SMITH/redactlog@latest` once the first tag exists in M2).
 
 ### M2 — Redaction engine core
 - **Goal.** `redact.New(rules...).Redact(ctx, value)` deep-walks a `map[string]any` / `[]any` / scalar tree and applies Pino-style path rules (`*`, `**`, wildcards, array indices) with predictable semantics and O(depth × rules) performance.
@@ -159,12 +159,12 @@ If W12 slips, v1.0.0 tags land by end of W14. That's the ceiling.
 - **Hours.** 10 · **Calendar.** 1 week
 - **Dependencies.** M1–M9.
 - **Deliverables.**
-  - `v1.0.0-rc.1` tag → smoke-test in the Fintech dashboard with `go get github.com/jas0n-smith/redactlog@v1.0.0-rc.1`.
+  - `v1.0.0-rc.1` tag → smoke-test in the Fintech dashboard with `go get github.com/JAS0N-SMITH/redactlog@v1.0.0-rc.1`.
   - If clean for 3–5 days, tag `v1.0.0`.
   - `.goreleaser.yaml` (library mode: `builds: - skip: true`; changelog grouped by conventional-commit prefix).
   - GitHub Release notes generated via goreleaser.
   - CHANGELOG.md entry for v1.0.0.
-  - Verify pkg.go.dev: visit `https://pkg.go.dev/github.com/jas0n-smith/redactlog` and subpackages; if stale, click the "Request" button or `go get` from a fresh module.
+  - Verify pkg.go.dev: visit `https://pkg.go.dev/github.com/JAS0N-SMITH/redactlog` and subpackages; if stale, click the "Request" button or `go get` from a fresh module.
   - GPG-sign the `v1.0.0` tag.
 - **Risks.** Last-minute API change during rc testing → cascades into doc rewrites. Proxy.golang.org caching a buggy tag — use `retract` in a `v1.0.1` rather than deleting.
 - **Definition of done.** Release checklist in §10 all ticked; pkg.go.dev green; dogfooded Fintech dashboard has been running on `v1.0.0` for at least 24h.
@@ -368,13 +368,13 @@ Tick each box before pushing the `v1.0.0` tag. Do not push the tag with any box 
 - [ ] `BENCHMARKS.md` published with benchstat output and methodology.
 - [ ] No `TODO` or `FIXME` comments in files matching `!(_test.go|internal/**)`.
 - [ ] `rc.1` tag has soaked in the Fintech dashboard in production for ≥ 24 hours without incident.
-- [ ] `pkg.go.dev/github.com/jas0n-smith/redactlog` renders all packages after the rc tag (check before final).
+- [ ] `pkg.go.dev/github.com/JAS0N-SMITH/redactlog` renders all packages after the rc tag (check before final).
 - [ ] Release notes drafted in goreleaser config; preview-built via `goreleaser release --snapshot --clean`.
 - [ ] Dependabot enabled; all current Dependabot PRs either merged or explicitly deferred.
 - [ ] `go.mod` declares `go 1.25.9`; `gin-gonic/gin` import appears only under `./gin/...`.
 - [ ] `v1.0.0` tag is GPG-signed (`git tag -s v1.0.0`); signature verifies (`git tag -v v1.0.0`).
 - [ ] Post-tag: trigger `release.yml`; GitHub Release created; Release artifacts (checksums, SBOM) attached.
-- [ ] Post-tag: `go install github.com/jas0n-smith/redactlog@v1.0.0` succeeds from a clean `$GOPATH`.
+- [ ] Post-tag: `go install github.com/JAS0N-SMITH/redactlog@v1.0.0` succeeds from a clean `$GOPATH`.
 
 ---
 

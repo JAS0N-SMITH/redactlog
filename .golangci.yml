@@ -50,4 +50,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/jas0n-smith/redactlog
+        - github.com/JAS0N-SMITH/redactlog
