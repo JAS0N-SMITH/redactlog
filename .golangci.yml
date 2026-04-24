@@ -1,0 +1,53 @@
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.23"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gosec
+    - unused
+    - ineffassign
+    - gocritic
+    - misspell
+    - unparam
+    - prealloc
+    - bodyclose
+    - noctx
+    - errorlint
+    - gocyclo
+    - godot
+
+  settings:
+    gocyclo:
+      min-complexity: 15
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+          disabled: false
+    gosec:
+      excludes:
+        - G115  # integer conversion overflow (noisy on HTTP size fields)
+
+  exclusions:
+    warn-unused: true
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/redactlog/redactlog

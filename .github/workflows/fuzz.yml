@@ -1,0 +1,45 @@
+name: Fuzz
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"  # daily 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add fuzz targets here as you create them.
+        # Example entries Claude Code will populate:
+        # - { pkg: "./redact", target: "FuzzRedactWalk", time: "60s" }
+        include:
+          - pkg: "./..."
+            target: ""
+            time: "10s"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Run short fuzz
+        if: matrix.target == ''
+        run: go test -run=^$ -short ./...
+
+      - name: Run fuzz target
+        if: matrix.target != ''
+        run: |
+          TIME=${{ matrix.time }}
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            TIME=10m
+          fi
+          go test -run=^$ -fuzz=^${{ matrix.target }}$ -fuzztime=$TIME ${{ matrix.pkg }}
