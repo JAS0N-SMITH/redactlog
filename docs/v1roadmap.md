@@ -371,7 +371,7 @@ Tick each box before pushing the `v1.0.0` tag. Do not push the tag with any box 
 - [ ] `pkg.go.dev/github.com/redactlog/redactlog` renders all packages after the rc tag (check before final).
 - [ ] Release notes drafted in goreleaser config; preview-built via `goreleaser release --snapshot --clean`.
 - [ ] Dependabot enabled; all current Dependabot PRs either merged or explicitly deferred.
-- [ ] `go.mod` declares `go 1.23`; `gin-gonic/gin` import appears only under `./gin/...`.
+- [ ] `go.mod` declares `go 1.25.9`; `gin-gonic/gin` import appears only under `./gin/...`.
 - [ ] `v1.0.0` tag is GPG-signed (`git tag -s v1.0.0`); signature verifies (`git tag -v v1.0.0`).
 - [ ] Post-tag: trigger `release.yml`; GitHub Release created; Release artifacts (checksums, SBOM) attached.
 - [ ] Post-tag: `go install github.com/redactlog/redactlog@v1.0.0` succeeds from a clean `$GOPATH`.

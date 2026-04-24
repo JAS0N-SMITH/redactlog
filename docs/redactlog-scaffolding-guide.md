@@ -164,10 +164,10 @@ Then pin the Go version. Open the generated `go.mod` and replace its content:
 ```go
 module github.com/redactlog/redactlog
 
-go 1.23
+go 1.25.9
 ```
 
-The minimum is 1.23 per the architecture doc and Gin 1.12+'s own floor. Do not specify a `toolchain` directive yet — that will be added by `go mod tidy` automatically once dependencies are added.
+The minimum is 1.25.9 — Gin v1.12 and its transitive deps require at least go1.25, and 1.25.9 is the first patch that clears all known standard library vulnerabilities. Do not specify a `toolchain` directive.
 
 ---
 

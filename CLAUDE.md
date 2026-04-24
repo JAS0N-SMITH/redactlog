@@ -52,7 +52,7 @@ It is **not** a general-purpose audit system. It does not do tamper-evident chai
 | Fact | Value |
 | --- | --- |
 | Module path | `github.com/redactlog/redactlog` |
-| Minimum Go | 1.23 |
+| Minimum Go | 1.25.9 |
 | License | Apache-2.0 |
 | Target release | v1.0.0, ~12 weeks solo, evenings/weekends |
 | Direct deps | stdlib, `felixge/httpsnoop`, `go.opentelemetry.io/otel/semconv/v1.26.0`, `gin-gonic/gin` (gin subpackage only) |

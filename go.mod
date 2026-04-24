@@ -1,6 +1,6 @@
 module github.com/jas0n-smith/redactlog
 
-go 1.25.0
+go 1.25.9
 
 require (
 	github.com/felixge/httpsnoop v1.0.4
