@@ -4,7 +4,7 @@ about: Something behaving incorrectly
 labels: bug
 ---
 
-**Version**: (output of `go list -m github.com/redactlog/redactlog`)
+**Version**: (output of `go list -m github.com/jas0n-smith/redactlog`)
 
 **What happened**:
 

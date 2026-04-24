@@ -18,11 +18,11 @@ Target Go version: **1.22+** (for `slog` maturity and `slices`). License recomme
 
 ## 2. Module layout
 
-Assumed module path: `github.com/redactlog/redactlog`. One repository, one module, one major-version suffix omitted until v2 (`/v2` on breaking change, per Go module rules).
+Assumed module path: `github.com/jas0n-smith/redactlog`. One repository, one module, one major-version suffix omitted until v2 (`/v2` on breaking change, per Go module rules).
 
 ```
 redactlog/
-├── go.mod                         // module github.com/redactlog/redactlog
+├── go.mod                         // module github.com/jas0n-smith/redactlog
 ├── go.sum
 ├── LICENSE                        // Apache-2.0
 ├── README.md
@@ -83,10 +83,10 @@ redactlog/
 
 **Rationale.**
 
-- **Root package `redactlog`** holds only the user-facing constructor surface (`Config`, `New`, `NewPCI`, options). Keeping it thin means `import "github.com/redactlog/redactlog"` gives you exactly what 90% of users need, mirroring `uber-go/zap`'s top-level `zap.NewProduction()` ergonomics.
+- **Root package `redactlog`** holds only the user-facing constructor surface (`Config`, `New`, `NewPCI`, options). Keeping it thin means `import "github.com/jas0n-smith/redactlog"` gives you exactly what 90% of users need, mirroring `uber-go/zap`'s top-level `zap.NewProduction()` ergonomics.
 - **`redact/`** is a reusable subpackage so teams can redact non-HTTP data (queue payloads, DB rows) with the same DSL. This is the only subpackage that may be imported in tight loops; it is allocation-budgeted.
 - **`httpmw/`** owns the framework-agnostic `net/http` middleware. Body capture, `httpsnoop` wrapping, and header scrubbing live here — nowhere else. This is the layer the Gin adapter delegates to.
-- **`gin/`** is its own subpackage so `go get github.com/redactlog/redactlog` does **not** drag in `gin-gonic/gin`. Users who want Gin pay for Gin explicitly. This mirrors `go.opentelemetry.io/contrib/instrumentation/*` layout.
+- **`gin/`** is its own subpackage so `go get github.com/jas0n-smith/redactlog` does **not** drag in `gin-gonic/gin`. Users who want Gin pay for Gin explicitly. This mirrors `go.opentelemetry.io/contrib/instrumentation/*` layout.
 - **`internal/`** is genuinely internal. `luhn`, `buffer`, `canonheader` are implementation details with no stability promise.
 - **`bench/`** isolates comparative benchmarks so `go test ./...` stays fast; CI invokes it separately.
 
@@ -848,7 +848,7 @@ package gin
 
 import (
     "github.com/gin-gonic/gin"
-    "github.com/redactlog/redactlog"
+    "github.com/jas0n-smith/redactlog"
 )
 
 func New(h *redactlog.Handler) gin.HandlerFunc {
@@ -1277,7 +1277,7 @@ Fuzz targets: `FuzzDSLParse`, `FuzzRedactor`, `FuzzPANDetect`.
 ## 15. Open questions / deferred decisions
 
 - **License.** Apache-2.0 recommended (patent grant matters for enterprise; Kubernetes, etcd, OTel all use it). MIT is viable if the maintainer prefers minimalism. Decide before first tag.
-- **Module path.** Placeholder `github.com/redactlog/redactlog`; actual org TBD. If hosted under a personal account, `github.com/<maintainer>/redactlog` with a redirect is fine.
+- **Module path.** Placeholder `github.com/jas0n-smith/redactlog`; actual org TBD. If hosted under a personal account, `github.com/<maintainer>/redactlog` with a redirect is fine.
 - **Option naming consistency.** `WithRequestBody(true)` vs `WithCaptureRequestBody(true)` — current draft uses the shorter form; reconfirm before tag.
 - **UUID generation.** Inline `crypto/rand`-based UUIDv4 (20 LOC, zero deps) vs `google/uuid` dep. Current decision: inline. Confirm with a reviewer.
 - **Error surface.** Should `Handler.Handle` swallow inner errors or propagate? Current: propagate. May revisit if slog `Logger` changes error discipline.
