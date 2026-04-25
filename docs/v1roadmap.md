@@ -57,12 +57,13 @@ If W12 slips, v1.0.0 tags land by end of W14. That's the ceiling.
 - **Hours.** 20 · **Calendar.** 2 weeks
 - **Dependencies.** M1.
 - **Deliverables.**
-  - `redact/dsl.go` — path lexer/parser producing an AST. Grammar matches the architecture doc §4.2.
-  - `internal/trie/trie.go` — compiled rule trie for O(1) per-segment dispatch.
-  - `internal/walker/walker.go` — iterative (not recursive) depth-limited walker with cycle detection and a configurable max depth (default 32) and max node count (default 10 000).
-  - `redact/redact.go` — public `Redactor` type with `New`, `MustNew`, `Redact`, `RedactValue`, `With` (composition).
-  - Table-driven unit tests covering: exact paths, single-segment wildcard, deep wildcard, array indices, `*.token`, `**.password`, case sensitivity, overlapping rules, no-match passthrough.
+  - `redact/dsl.go` — path lexer/parser producing a per-path segment slice. Grammar matches the architecture doc §6.1 (Pino-style subset; `**`, numeric indices, negation, glob char-classes are rejected).
+  - `redact/compile.go` — trie compiler (`Program` output type) with O(1) per-segment dispatch. Trie is immutable post-build.
+  - `redact/walk.go` — iterative (not recursive) depth-limited walker with cycle detection via `LogValuer` resolution and a configurable max depth (default 32) and max node count (default 10 000).
+  - `redact/redactor.go` — public `Engine` type with `New(paths []string, opts Options) (*Engine, error)`, `Redact(v any) any`, `RedactValue(v slog.Value) slog.Value`, plus the `Redactor` interface and `Detector` interface per architecture §3.2.
+  - Table-driven unit tests covering: exact paths, single-segment wildcard, array wildcard, bracket-quoted keys, top-level `*.x`, intermediate wildcards, no-match passthrough; plus negative cases for `**`, `[0]`, `!a.b`, glob char-classes.
   - Benchmarks: `BenchmarkRedact_Flat10`, `BenchmarkRedact_Nested5x5`, `BenchmarkRedact_1KBJSON`.
+  - **Note (architecture deviation from earlier roadmap drafts):** trie/walker live under `redact/` (not `internal/trie` and `internal/walker`) per the authoritative module layout in `docs/architecture.md` §2. `internal/` holds only `bufpool`, `canonheader`, `luhn`, `ringbuf`. `MustNew` and `With` were dropped from v1 — see `docs/v2-ideas.md`.
 - **Risks.** DSL edge cases (escaped dots, bracket syntax for keys containing dots) blow up scope. Walker recursion vs iteration trade-off.
 - **Definition of done.** 95%+ line coverage on `redact/` and `internal/`; benchmarks stable (<5% run-to-run variance on a quiet laptop); `BenchmarkRedact_Nested5x5` ≤ **1.5 µs/op, 0 allocs/op on the redacted copy's scalar path** (allocs allowed only where the walker must clone containers).
 
