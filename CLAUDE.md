@@ -45,7 +45,7 @@ It is **not** a general-purpose audit system. It does not do tamper-evident chai
 - Ecosystem gap analysis: `docs/gap-analysis.md`
 - Deep research notes: `docs/research.md`
 
-**Current milestone**: M2 — redact engine core, week 2/12. <!-- e.g., "M4 — httpmw body capture, week 5/12" -->
+**Current milestone**: _M?_ — update this line when switching milestones. <!-- e.g., "M4 — httpmw body capture, week 5/12" -->
 
 **Project facts** (do not contradict without opening an ADR):
 
