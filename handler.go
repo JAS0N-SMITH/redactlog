@@ -20,7 +20,6 @@ type Handler struct {
 	inner  slog.Handler
 	engine *redact.Engine
 	groups []string
-	attrs  []slog.Attr
 	clock  func() time.Time
 }
 
@@ -58,8 +57,6 @@ func (c *Config) Build() (*Handler, error) {
 	return &Handler{
 		inner:  c.Logger.Handler(),
 		engine: engine,
-		groups: nil,
-		attrs:  nil,
 		clock:  clock,
 	}, nil
 }
@@ -86,10 +83,10 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	// Build a fresh record so we don't mutate the caller's.
+	// WithAttrs-derived attrs are pre-loaded in h.inner via the propagation in
+	// WithAttrs; replaying them here would cause double-emission and would
+	// incorrectly place pre-group attrs under a subsequently opened group.
 	out := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
-
-	// Add pre-redacted attrs from WithAttrs (these are already redacted at call time).
-	out.AddAttrs(h.attrs...)
 
 	// Extract and add context-scoped attrs (redacted under current groups).
 	for _, a := range attrsFromCtx(ctx) {
@@ -120,10 +117,8 @@ func (h *Handler) WithAttrs(as []slog.Attr) slog.Handler {
 		redacted[i] = h.engine.RedactAttrInGroups(a, h.groups)
 	}
 
-	// Accumulate pre-redacted attrs (copy-on-write: don't share with parent).
-	clone.attrs = append(append([]slog.Attr{}, h.attrs...), redacted...)
-
-	// Propagate to inner handler so it can apply any handler-native optimizations.
+	// Propagate redacted attrs to inner so it owns them; Handle does not replay
+	// them into the record to avoid double-emission.
 	clone.inner = h.inner.WithAttrs(redacted)
 
 	return &clone

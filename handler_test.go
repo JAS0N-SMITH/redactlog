@@ -18,8 +18,6 @@ import (
 // nesting with empty attributes. The core redaction functionality is verified
 // by the other tests in this file, which all pass.
 func TestSlogCompat(t *testing.T) {
-	t.Skip("slogtest edge case with empty groups requires further investigation")
-
 	var buf bytes.Buffer
 	h, err := New(
 		WithLogger(slog.New(slog.NewJSONHandler(&buf, nil))),
