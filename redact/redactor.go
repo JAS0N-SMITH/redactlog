@@ -128,6 +128,36 @@ func (e *Engine) Redact(v any) any {
 	return e.redactAny(v, []*trieNode{e.prog.root}, 0, &st)
 }
 
+// RedactAttrInGroups redacts a single [slog.Attr] as if it were nested under
+// the given group path segments. Used by the slog [Handler] wrapper to honor
+// DSL paths that begin with a group prefix accumulated via [Handler.WithGroup].
+//
+// For example, a DSL path `req.body.password` is matched by first advancing
+// the trie through group names ["req", "body"] and then walking the attribute
+// key against the resulting trie positions.
+//
+// A nil Engine returns the attribute unchanged.
+func (e *Engine) RedactAttrInGroups(a slog.Attr, groups []string) slog.Attr {
+	if e == nil || e.prog == nil || e.prog.root == nil {
+		return a
+	}
+	st := walkState{maxNodes: defaultMaxNodes, maxDepth: defaultMaxDepth}
+	states := []*trieNode{e.prog.root}
+	for _, g := range groups {
+		next, leaf := advanceForKey(states, g)
+		if leaf {
+			// The entire group is a redact target — replace the whole attribute value.
+			return slog.String(a.Key, e.prog.censor)
+		}
+		if len(next) == 0 {
+			// No rule can match under this group prefix; pass through.
+			return a
+		}
+		states = next
+	}
+	return e.prog.walkAttr(a, states, 0, &st)
+}
+
 // redactAny is the recursive walker behind [Engine.Redact]. The multi-state
 // design mirrors [Program.walkAttr]; see walk.go for the rationale.
 func (e *Engine) redactAny(v any, states []*trieNode, depth int, st *walkState) any {
