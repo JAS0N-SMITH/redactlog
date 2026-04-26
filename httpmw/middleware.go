@@ -1,7 +1,6 @@
 package httpmw
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"io"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/JAS0N-SMITH/redactlog/redact"
-	"github.com/felixge/httpsnoop"
 )
 
 // randReader is the random source for UUIDv4 generation.
@@ -96,14 +94,10 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 			var reqBody []byte
 			var reqBodyTruncated bool
 			if cfg.CaptureRequestBody && contentTypeAllowed(r.Header.Get("Content-Type"), cfg.ContentTypes) {
-				buf := new(bytes.Buffer)
-				limited := io.LimitedReader{R: r.Body, N: int64(cfg.MaxBodyBytes) + 1}
-				n, _ := io.Copy(buf, &limited)
-				reqBody = buf.Bytes()
-				reqBodyTruncated = n > int64(cfg.MaxBodyBytes)
-
-				// Restore request body for the handler.
-				r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(reqBody), r.Body))
+				captured, truncated, restoredBody := captureRequestBody(r.Body, cfg.MaxBodyBytes)
+				reqBody = captured
+				reqBodyTruncated = truncated
+				r.Body = restoredBody
 			}
 
 			// Scrub query parameters.
@@ -201,54 +195,6 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 	cfg.Logger.LogAttrs(ctx, level, "http_request", attrs...)
 }
 
-// capturedResponse holds captured response metadata.
-type capturedResponse struct {
-	Status        int
-	Header        http.Header
-	Body          []byte
-	BodyTruncated bool
-	Duration      time.Duration
-}
-
-// wrapResponseWriter wraps the response writer to capture status and optionally body.
-func wrapResponseWriter(w http.ResponseWriter, captured *capturedResponse, maxBodyBytes int, captureBody bool, contentTypes []string) http.ResponseWriter {
-	captured.Header = make(http.Header)
-
-	hooks := httpsnoop.Hooks{
-		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
-			return func(code int) {
-				captured.Status = code
-				// Copy headers before WriteHeader is called.
-				for k, vv := range w.Header() {
-					captured.Header[k] = append([]string(nil), vv...)
-				}
-				next(code)
-			}
-		},
-	}
-
-	if captureBody {
-		hooks.Write = func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
-			return func(b []byte) (int, error) {
-				if len(captured.Body) < maxBodyBytes {
-					room := maxBodyBytes - len(captured.Body)
-					if len(b) <= room {
-						captured.Body = append(captured.Body, b...)
-					} else {
-						captured.Body = append(captured.Body, b[:room]...)
-						captured.BodyTruncated = true
-					}
-				} else if len(captured.Body) == maxBodyBytes {
-					captured.BodyTruncated = true
-				}
-				return next(b)
-			}
-		}
-	}
-
-	return httpsnoop.Wrap(w, hooks)
-}
-
 // scrubQueryParams returns a URL with sensitive query parameters replaced with ***.
 func scrubQueryParams(u *url.URL, sensitiveParams []string) *url.URL {
 	if u.RawQuery == "" {
@@ -267,34 +213,6 @@ func scrubQueryParams(u *url.URL, sensitiveParams []string) *url.URL {
 	return &scrubbed
 }
 
-// scrubHeaders returns a header map with denylist entries removed (or allowlist applied).
-func scrubHeaders(h http.Header, denylist, allowlist []string) http.Header {
-	result := make(http.Header)
-
-	if len(allowlist) > 0 {
-		// Allowlist mode: only include headers in the list.
-		for _, name := range allowlist {
-			if vv := h[http.CanonicalHeaderKey(name)]; len(vv) > 0 {
-				result[http.CanonicalHeaderKey(name)] = append([]string(nil), vv...)
-			}
-		}
-	} else {
-		// Denylist mode: exclude headers in the list.
-		denySet := make(map[string]bool)
-		for _, name := range denylist {
-			denySet[strings.ToLower(name)] = true
-		}
-
-		for k, vv := range h {
-			if !denySet[strings.ToLower(k)] {
-				result[k] = append([]string(nil), vv...)
-			}
-		}
-	}
-
-	return result
-}
-
 // contentTypeAllowed checks if the given content type is in the allowed list.
 func contentTypeAllowed(ct string, allowed []string) bool {
 	if ct == "" {
@@ -311,6 +229,16 @@ func contentTypeAllowed(ct string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+// isMultipartContent checks if the content type is multipart (form data, mixed, etc).
+func isMultipartContent(ct string) bool {
+	if ct == "" {
+		return false
+	}
+	parts := strings.Split(ct, ";")
+	mediaType := strings.TrimSpace(parts[0])
+	return strings.HasPrefix(strings.ToLower(mediaType), "multipart/")
 }
 
 // clientAddr extracts the client IP address from the request.
