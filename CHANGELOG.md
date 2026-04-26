@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-26
+
+### Added
+
+- `handler.go` — `Handler`, a `slog.Handler` wrapper implementing all four
+  methods (`Enabled`, `Handle`, `WithAttrs`, `WithGroup`). Redacts attributes
+  via the `redact.Engine` trie before delegating to the inner handler. Resolves
+  `slog.LogValuer` values before path matching. Passes `slogtest.TestHandler`
+  conformance.
+- `context.go` — `SetAttrs` / `attrsFromCtx` context-propagation helpers (~20
+  LOC inline implementation, no `slog-context` dependency per ADR-005).
+- `handler.go` — `Handler.Logger()` returning an `*slog.Logger` backed by the
+  redacting handler; `Handler.Middleware()` stub (full implementation in M4).
+- `redactlog.go` — `New` and `NewPCI` constructors; `Config.Build` validates
+  and compiles the engine.
+- `options.go` — full functional-option set: `WithLogger`, `WithRedactPaths`,
+  `WithCensor`, `WithDetectors`, `WithClock`.
+- `errors.go` — `ErrNoLogger`, `ErrInvalidPath`, `ErrBadCensor` sentinel errors.
+
+### Fixed
+
+- `Handler.WithAttrs` no longer double-emits pre-loaded attributes. Attributes
+  passed via `WithAttrs` are propagated to the inner handler (so it can
+  pre-encode them) and are not also replayed into the `slog.Record` in `Handle`.
+  Previously, opening a group after `WithAttrs` caused those attributes to
+  appear nested under the group, breaking `slogtest`'s empty-group invariant.
+
+## [0.1.0] - 2026-04-19
+
 ### Added
 
 - Initial project scaffolding.
