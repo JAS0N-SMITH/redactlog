@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "stable"
           cache: true
 
       - name: Install golangci-lint
@@ -39,7 +39,9 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ github.event_name == 'push' && fromJson('["ubuntu-latest","macos-latest"]') || fromJson('["ubuntu-latest"]') }}
-        go: ${{ github.event_name == 'push' && fromJson('["1.23","1.24"]') || fromJson('["1.23"]') }}
+        # go.mod requires Go 1.25.9; "1.25" picks the latest 1.25.x patch on
+        # the runner, "stable" tracks the latest minor (1.26+ when released).
+        go: ${{ github.event_name == 'push' && fromJson('["1.25","stable"]') || fromJson('["1.25"]') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +54,7 @@ jobs:
       - run: go test -race -coverprofile=coverage.out ./...
 
       - name: Coverage summary
-        if: matrix.os == 'ubuntu-latest' && matrix.go == '1.23'
+        if: matrix.os == 'ubuntu-latest' && matrix.go == '1.25'
         run: go tool cover -func=coverage.out | tail -1
 
   vuln:
@@ -63,7 +65,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "stable"
           cache: true
 
       - name: Install govulncheck
