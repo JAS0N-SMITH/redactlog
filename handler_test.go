@@ -562,11 +562,17 @@ func TestHandlerMiddleware(t *testing.T) {
 	ts := httptest.NewServer(h.Middleware()(mux))
 	defer ts.Close()
 
-	resp, err := ts.Client().Get(ts.URL + "/ping")
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+"/ping", nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext failed: %v", err)
+	}
+	resp, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatalf("GET failed: %v", err)
 	}
-	resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("Body.Close failed: %v", err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
@@ -597,11 +603,17 @@ func TestHandlerMiddlewareWithRouteFunc(t *testing.T) {
 	ts := httptest.NewServer(h.MiddlewareWithRouteFunc(routeFunc)(mux))
 	defer ts.Close()
 
-	resp, err := ts.Client().Get(ts.URL + "/users/42")
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+"/users/42", nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext failed: %v", err)
+	}
+	resp, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatalf("GET failed: %v", err)
 	}
-	resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("Body.Close failed: %v", err)
+	}
 
 	if !strings.Contains(buf.String(), "/users/:id") {
 		t.Errorf("http.route not logged; output: %s", buf.String())
@@ -621,7 +633,7 @@ func TestNilHandlerMiddleware(t *testing.T) {
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	mw(inner).ServeHTTP(rec, req)
 
 	if !called {
@@ -662,24 +674,35 @@ func TestHTTPOptions(t *testing.T) {
 	})))
 	defer ts.Close()
 
+	do := func(path string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+path, nil)
+		if err != nil {
+			t.Fatalf("NewRequestWithContext: %v", err)
+		}
+		resp, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatalf("Do %s: %v", path, err)
+		}
+		return resp
+	}
+
 	// /healthz is in the skip list — no log line should be emitted.
 	buf.Reset()
-	resp, err := ts.Client().Get(ts.URL + "/healthz")
-	if err != nil {
-		t.Fatalf("GET /healthz failed: %v", err)
+	resp := do("/healthz")
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("Body.Close: %v", err)
 	}
-	resp.Body.Close()
 	if buf.Len() != 0 {
 		t.Errorf("expected no log for skipped path, got: %s", buf.String())
 	}
 
 	// A normal path should produce a log line.
 	buf.Reset()
-	resp, err = ts.Client().Get(ts.URL + "/api")
-	if err != nil {
-		t.Fatalf("GET /api failed: %v", err)
+	resp = do("/api")
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("Body.Close: %v", err)
 	}
-	resp.Body.Close()
 	if !strings.Contains(buf.String(), "http.request.method") {
 		t.Errorf("expected log for non-skipped path, got: %s", buf.String())
 	}
@@ -721,14 +744,19 @@ func TestWithHeaderAllowlist(t *testing.T) {
 	})))
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+"/", nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext failed: %v", err)
+	}
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatalf("GET failed: %v", err)
 	}
-	resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("Body.Close failed: %v", err)
+	}
 
 	logged := buf.String()
 	if strings.Contains(logged, "Bearer secret") {
