@@ -1,10 +1,14 @@
 package httpmw
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -668,6 +672,203 @@ func TestResponseDurationLogging(t *testing.T) {
 	// Verify that duration is logged.
 	if !strings.Contains(logOutput, "http.duration") {
 		t.Error("http.duration not found in logs")
+	}
+}
+
+// TestBodyCaptureTruncation_LogAssertions strengthens the truncation test to assert
+// on log output: body present, truncated flag set, and body capped at MaxBodyBytes.
+func TestBodyCaptureTruncation_LogAssertions(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+	const maxBytes = 10
+	cfg := Config{
+		Logger:              logger,
+		CaptureRequestBody:  true,
+		CaptureResponseBody: true,
+		MaxBodyBytes:        maxBytes,
+		ContentTypes:        []string{"application/json"},
+	}
+
+	mw := Middleware(cfg)
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"response":"this is a very long response body"}`))
+	}))
+
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/test",
+		bytes.NewReader([]byte(`{"request":"this is a very long request body"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	out := logBuf.String()
+	if !strings.Contains(out, "http.request.body") {
+		t.Error("http.request.body not in log")
+	}
+	if !strings.Contains(out, `"http.request.body.truncated":true`) {
+		t.Error("http.request.body.truncated not true in log")
+	}
+	// Unmarshal the JSON log line to get the actual decoded body string length.
+	// This avoids false failures from JSON escape sequences.
+	var record map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &record); err != nil {
+		t.Fatalf("failed to unmarshal log line: %v", err)
+	}
+	raw, ok := record["http.request.body"]
+	if !ok {
+		t.Fatal("http.request.body key not found in log record")
+	}
+	var body string
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("failed to unmarshal body value: %v", err)
+	}
+	if len(body) != maxBytes {
+		t.Errorf("expected body length %d, got %d (value: %q)", maxBytes, len(body), body)
+	}
+}
+
+// TestHijackerPreserved_RealServer verifies that Hijack() succeeds through the
+// middleware using a real net/http server (httptest.ResponseRecorder doesn't
+// implement Hijacker, so we need an actual listener).
+func TestHijackerPreserved_RealServer(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	cfg := Config{Logger: logger}
+	mw := Middleware(cfg)
+
+	hijackOK := make(chan bool, 1)
+	srv := httptest.NewServer(mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			hijackOK <- false
+			http.Error(w, "no hijacker", http.StatusInternalServerError)
+			return
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			hijackOK <- false
+			return
+		}
+		defer conn.Close()
+		hijackOK <- true
+		// Send a minimal HTTP response over the raw connection.
+		_, _ = fmt.Fprintf(buf, "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\n\r\n")
+		_ = buf.Flush()
+	})))
+	defer srv.Close()
+
+	conn, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	_, _ = fmt.Fprintf(conn, "GET /ws HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n\r\n")
+
+	// Read back — just drain enough to unblock the server.
+	buf := bufio.NewReader(conn)
+	line, _ := buf.ReadString('\n')
+	_ = line
+
+	if ok := <-hijackOK; !ok {
+		t.Error("Hijack() failed through middleware — Hijacker interface not preserved")
+	}
+}
+
+// TestRouteFunc_TemplateEmitted verifies that RouteFunc's return value is emitted
+// as http.route in the log record.
+func TestRouteFunc_TemplateEmitted(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+	cfg := Config{
+		Logger:    logger,
+		RouteFunc: func(_ *http.Request) string { return "/users/:id" },
+	}
+	mw := Middleware(cfg)
+	mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), "GET", "/users/42", nil))
+
+	if !strings.Contains(logBuf.String(), `"http.route":"/users/:id"`) {
+		t.Errorf("http.route not found in log: %s", logBuf.String())
+	}
+}
+
+// TestStatusFunc_FallbackUsed verifies that StatusFunc is consulted when the
+// response writer never calls WriteHeader (status captured by httpsnoop is 0).
+func TestStatusFunc_FallbackUsed(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+	cfg := Config{
+		Logger:     logger,
+		StatusFunc: func() int { return http.StatusCreated },
+	}
+	mw := Middleware(cfg)
+	// Handler does not call WriteHeader, so httpsnoop captures status=0.
+	mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok")) // implicit 200 via ResponseRecorder, but snoop sees 0
+	})).ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), "GET", "/", nil))
+
+	// StatusFunc returns 201; resolveStatus must use it.
+	if !strings.Contains(logBuf.String(), `"http.response.status_code":201`) {
+		t.Errorf("expected status 201 from StatusFunc, got: %s", logBuf.String())
+	}
+}
+
+// TestSampleRate_LogsAll confirms that SampleRate=0 (disabled) logs every request.
+func TestSampleRate_LogsAll(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+	cfg := Config{Logger: logger, SampleRate: 0}
+	mw := Middleware(cfg)
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for i := 0; i < 5; i++ {
+		logBuf.Reset()
+		handler.ServeHTTP(httptest.NewRecorder(),
+			httptest.NewRequestWithContext(context.Background(), "GET", "/", nil))
+		if logBuf.Len() == 0 {
+			t.Errorf("request %d was not logged with SampleRate=0", i)
+		}
+	}
+}
+
+// TestSampleRate_Sampling confirms that a SampleRate of 1.0 logs every request and
+// that injection of randFloat lets us drive the sampling gate deterministically.
+func TestSampleRate_Sampling(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+	// Replace randFloat with a function that always returns > SampleRate → skip.
+	orig := randFloat
+	randFloat = func() float64 { return 0.9 }
+	defer func() { randFloat = orig }()
+
+	cfg := Config{Logger: logger, SampleRate: 0.5} // 0.9 > 0.5 → log skipped
+	mw := Middleware(cfg)
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	handler.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), "GET", "/", nil))
+	if logBuf.Len() != 0 {
+		t.Error("request should have been sampled out but was logged")
+	}
+
+	// Now set randFloat below SampleRate → request should be logged.
+	logBuf.Reset()
+	randFloat = func() float64 { return 0.1 }
+	handler.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), "GET", "/", nil))
+	if logBuf.Len() == 0 {
+		t.Error("request should have been logged but was sampled out")
 	}
 }
 

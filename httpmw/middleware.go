@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	"log/slog"
+	mrand "math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,11 +13,16 @@ import (
 	"strings"
 	"time"
 
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+
 	"github.com/JAS0N-SMITH/redactlog/redact"
 )
 
 // randReader is the random source for UUIDv4 generation.
 var randReader = rand.Reader
+
+// randFloat returns a random float64 in [0, 1). Replaced in tests for determinism.
+var randFloat = mrand.Float64
 
 // Config holds HTTP middleware configuration.
 type Config struct {
@@ -56,6 +62,10 @@ type Config struct {
 	// SkipPaths lists request paths to skip logging (exact match).
 	SkipPaths []string
 
+	// SampleRate, when in (0, 1), logs only that fraction of requests at random.
+	// A value of 0 or 1 (and any value outside (0,1)) logs every request.
+	SampleRate float64
+
 	// Clock injects a time source for deterministic testing.
 	Clock func() time.Time
 
@@ -88,6 +98,14 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 			if slices.Contains(cfg.SkipPaths, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
+			}
+
+			// Probabilistic sampling: skip logging for (1-SampleRate) fraction.
+			if rate := cfg.SampleRate; rate > 0 && rate < 1 {
+				if randFloat() > rate {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 
 			ctx := r.Context()
@@ -139,17 +157,17 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 // logRequest emits a log record for the request/response pair.
 func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *url.URL, reqID string, reqBody []byte, reqBodyTruncated bool, resp *capturedResponse) {
 	attrs := []slog.Attr{
-		slog.String("http.request.method", r.Method),
-		slog.String("url.path", scrubbedURL.Path),
-		slog.String("server.address", r.Host),
-		slog.String("client.address", clientAddr(r)),
-		slog.String("network.protocol.version", r.Proto),
-		slog.String("user_agent.original", r.Header.Get("User-Agent")),
+		slog.String(string(semconv.HTTPRequestMethodKey), r.Method),
+		slog.String(string(semconv.URLPathKey), scrubbedURL.Path),
+		slog.String(string(semconv.ServerAddressKey), r.Host),
+		slog.String(string(semconv.ClientAddressKey), clientAddr(r)),
+		slog.String(string(semconv.NetworkProtocolVersionKey), r.Proto),
+		slog.String(string(semconv.UserAgentOriginalKey), r.Header.Get("User-Agent")),
 	}
 
 	if cfg.RouteFunc != nil {
 		if route := cfg.RouteFunc(r); route != "" {
-			attrs = append(attrs, slog.String("http.route", route))
+			attrs = append(attrs, slog.String(string(semconv.HTTPRouteKey), route))
 		}
 	}
 	if reqID != "" {
@@ -167,7 +185,7 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 	}
 
 	status := resolveStatus(cfg, resp)
-	attrs = append(attrs, slog.Int("http.response.status_code", status))
+	attrs = append(attrs, slog.Int(string(semconv.HTTPResponseStatusCodeKey), status))
 
 	attrs = appendHeaderAttrs(attrs, resp.Header, "http.response.header.", cfg.HeaderDenylist, cfg.HeaderAllowlist)
 
