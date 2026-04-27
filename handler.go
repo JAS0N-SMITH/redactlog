@@ -232,6 +232,31 @@ func (h *Handler) Logger() *slog.Logger {
 // The middleware captures request/response metadata and bodies (configurable),
 // scrubs headers per the allowlist/denylist, and logs via h.Logger().
 func (h *Handler) Middleware() func(http.Handler) http.Handler {
+	return h.MiddlewareWithRouteFunc(nil)
+}
+
+// MiddlewareWithRouteFunc returns middleware like Middleware but additionally
+// calls routeFunc after each request to obtain the matched route template
+// (e.g. "/users/:id"), emitting it as http.route. Pass nil for no route attr.
+//
+// Framework adapters use this to surface route templates that are only known
+// after the handler chain runs (e.g. gin's c.FullPath()).
+func (h *Handler) MiddlewareWithRouteFunc(routeFunc func(*http.Request) string) func(http.Handler) http.Handler {
+	return h.middlewareWith(routeFunc, nil)
+}
+
+// MiddlewareForGin returns middleware wired for use inside a Gin handler chain.
+// routeFunc should return c.FullPath() and statusFunc should return
+// c.Writer.Status(). Both are called after the handler chain completes.
+//
+// Gin's ResponseWriter tracks status internally and may not propagate
+// WriteHeader through httpsnoop's hook, so statusFunc is required for correct
+// log-level promotion and http.response.status_code emission.
+func (h *Handler) MiddlewareForGin(routeFunc func(*http.Request) string, statusFunc func() int) func(http.Handler) http.Handler {
+	return h.middlewareWith(routeFunc, statusFunc)
+}
+
+func (h *Handler) middlewareWith(routeFunc func(*http.Request) string, statusFunc func() int) func(http.Handler) http.Handler {
 	if h == nil {
 		return func(next http.Handler) http.Handler { return next }
 	}
@@ -250,6 +275,8 @@ func (h *Handler) Middleware() func(http.Handler) http.Handler {
 		GenerateRequestID:    h.http.GenerateRequestID,
 		SkipPaths:            h.http.SkipPaths,
 		Clock:                h.clock,
+		RouteFunc:            routeFunc,
+		StatusFunc:           statusFunc,
 	}
 
 	return httpmw.Middleware(cfg)

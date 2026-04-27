@@ -58,6 +58,18 @@ type Config struct {
 
 	// Clock injects a time source for deterministic testing.
 	Clock func() time.Time
+
+	// RouteFunc, if non-nil, is called after the handler returns to obtain the
+	// matched route template (e.g. "/users/:id"). The return value is emitted as
+	// http.route. Framework adapters (e.g. the gin adapter) use this to surface
+	// the route template, which is only known after the handler chain runs.
+	RouteFunc func(*http.Request) string
+
+	// StatusFunc, if non-nil and the status captured via httpsnoop is 0, is
+	// called to obtain the response status code. Needed for frameworks (e.g.
+	// gin) whose ResponseWriter tracks status internally and may not call the
+	// underlying http.ResponseWriter.WriteHeader through httpsnoop's wrapper.
+	StatusFunc func() int
 }
 
 // Middleware returns an http.Handler middleware that captures request/response metadata
@@ -136,6 +148,13 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 		slog.String("user_agent.original", r.Header.Get("User-Agent")),
 	}
 
+	// Add route template if a RouteFunc provided one (set by framework adapters post-handler).
+	if cfg.RouteFunc != nil {
+		if route := cfg.RouteFunc(r); route != "" {
+			attrs = append(attrs, slog.String("http.route", route))
+		}
+	}
+
 	// Add request ID if present.
 	if reqID != "" {
 		attrs = append(attrs, slog.String("http.request.id", reqID))
@@ -162,8 +181,19 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 		attrs = append(attrs, slog.Bool("http.request.body.truncated", reqBodyTruncated))
 	}
 
+	// Resolve the response status. httpsnoop captures it for plain net/http;
+	// framework adapters (gin) supply StatusFunc because their ResponseWriter
+	// tracks status internally, bypassing the WriteHeader hook.
+	status := resp.Status
+	if status == 0 && cfg.StatusFunc != nil {
+		status = cfg.StatusFunc()
+	}
+	if status == 0 {
+		status = http.StatusOK
+	}
+
 	// Add response status.
-	attrs = append(attrs, slog.Int("http.response.status_code", resp.Status))
+	attrs = append(attrs, slog.Int("http.response.status_code", status))
 
 	// Add response headers (scrubbed).
 	if len(resp.Header) > 0 {
@@ -186,9 +216,9 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 
 	// Emit the log record.
 	level := slog.LevelInfo
-	if resp.Status >= 500 {
+	if status >= 500 {
 		level = slog.LevelError
-	} else if resp.Status >= 400 && resp.Status < 500 {
+	} else if status >= 400 && status < 500 {
 		level = slog.LevelWarn
 	}
 
