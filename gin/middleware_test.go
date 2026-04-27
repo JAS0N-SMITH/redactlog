@@ -3,6 +3,7 @@ package gin_test
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,10 +25,10 @@ func init() {
 }
 
 // newTestHandler builds a redactlog.Handler that logs into buf as JSON.
-func newTestHandler(t *testing.T, buf *bytes.Buffer, opts ...redactlog.Option) *redactlog.Handler {
+func newTestHandler(t *testing.T, buf *bytes.Buffer) *redactlog.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	h, err := redactlog.New(append([]redactlog.Option{redactlog.WithLogger(logger)}, opts...)...)
+	h, err := redactlog.New(redactlog.WithLogger(logger))
 	if err != nil {
 		t.Fatalf("redactlog.New: %v", err)
 	}
@@ -127,7 +128,7 @@ func TestGinMiddleware_TableDriven(t *testing.T) {
 			if tt.body != "" {
 				reqBody = strings.NewReader(tt.body)
 			}
-			req := httptest.NewRequest(tt.method, tt.path, reqBody)
+			req := httptest.NewRequestWithContext(context.Background(), tt.method, tt.path, reqBody)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -164,7 +165,7 @@ func TestGinMiddleware_SSEFlusherPreserved(t *testing.T) {
 		}
 	})
 
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/events", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -202,7 +203,7 @@ func TestGinMiddleware_HijackPreserved(t *testing.T) {
 		}
 		hijackOK.Store(true)
 		_ = rw
-		conn.Close()
+		_ = conn.Close()
 	})
 
 	// httptest.NewRecorder does NOT implement Hijacker, so we need a real
@@ -210,11 +211,11 @@ func TestGinMiddleware_HijackPreserved(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	conn, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", server.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	_, err = fmt.Fprintf(conn, "GET /ws HTTP/1.1\r\nHost: localhost\r\n\r\n")
 	if err != nil {
@@ -243,7 +244,7 @@ func TestGinMiddleware_PanicRecovery(t *testing.T) {
 		panic("deliberate test panic")
 	})
 
-	req := httptest.NewRequest("GET", "/boom", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/boom", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -273,7 +274,7 @@ func TestNewWithConfig(t *testing.T) {
 	r.Use(fn)
 	r.GET("/ok", func(c *ggin.Context) { c.Status(http.StatusOK) })
 
-	req := httptest.NewRequest("GET", "/ok", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/ok", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

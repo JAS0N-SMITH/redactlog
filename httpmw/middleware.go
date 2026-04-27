@@ -138,7 +138,6 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 
 // logRequest emits a log record for the request/response pair.
 func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *url.URL, reqID string, reqBody []byte, reqBodyTruncated bool, resp *capturedResponse) {
-	// Build attributes for the log record.
 	attrs := []slog.Attr{
 		slog.String("http.request.method", r.Method),
 		slog.String("url.path", scrubbedURL.Path),
@@ -148,42 +147,43 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 		slog.String("user_agent.original", r.Header.Get("User-Agent")),
 	}
 
-	// Add route template if a RouteFunc provided one (set by framework adapters post-handler).
 	if cfg.RouteFunc != nil {
 		if route := cfg.RouteFunc(r); route != "" {
 			attrs = append(attrs, slog.String("http.route", route))
 		}
 	}
-
-	// Add request ID if present.
 	if reqID != "" {
 		attrs = append(attrs, slog.String("http.request.id", reqID))
 	}
-
-	// Add query if present.
 	if scrubbedURL.RawQuery != "" {
 		attrs = append(attrs, slog.String("url.query", scrubbedURL.RawQuery))
 	}
 
-	// Add request headers (scrubbed).
-	if len(r.Header) > 0 {
-		hdr := scrubHeaders(r.Header, cfg.HeaderDenylist, cfg.HeaderAllowlist)
-		for k, vv := range hdr {
-			for _, v := range vv {
-				attrs = append(attrs, slog.String("http.request.header."+strings.ToLower(k), v))
-			}
-		}
-	}
+	attrs = appendHeaderAttrs(attrs, r.Header, "http.request.header.", cfg.HeaderDenylist, cfg.HeaderAllowlist)
 
-	// Add request body if captured.
 	if len(reqBody) > 0 {
 		attrs = append(attrs, slog.String("http.request.body", string(reqBody)))
 		attrs = append(attrs, slog.Bool("http.request.body.truncated", reqBodyTruncated))
 	}
 
-	// Resolve the response status. httpsnoop captures it for plain net/http;
-	// framework adapters (gin) supply StatusFunc because their ResponseWriter
-	// tracks status internally, bypassing the WriteHeader hook.
+	status := resolveStatus(cfg, resp)
+	attrs = append(attrs, slog.Int("http.response.status_code", status))
+
+	attrs = appendHeaderAttrs(attrs, resp.Header, "http.response.header.", cfg.HeaderDenylist, cfg.HeaderAllowlist)
+
+	if len(resp.Body) > 0 {
+		attrs = append(attrs, slog.String("http.response.body", string(resp.Body)))
+		attrs = append(attrs, slog.Bool("http.response.body.truncated", resp.BodyTruncated))
+	}
+
+	attrs = append(attrs, slog.Duration("http.duration", resp.Duration))
+
+	cfg.Logger.LogAttrs(ctx, logLevel(status), "http_request", attrs...)
+}
+
+// resolveStatus returns the HTTP response status, consulting StatusFunc and
+// defaulting to 200 when neither httpsnoop nor the framework captured one.
+func resolveStatus(cfg Config, resp *capturedResponse) int {
 	status := resp.Status
 	if status == 0 && cfg.StatusFunc != nil {
 		status = cfg.StatusFunc()
@@ -191,38 +191,33 @@ func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *u
 	if status == 0 {
 		status = http.StatusOK
 	}
+	return status
+}
 
-	// Add response status.
-	attrs = append(attrs, slog.Int("http.response.status_code", status))
+// logLevel maps an HTTP status code to the appropriate slog level.
+func logLevel(status int) slog.Level {
+	switch {
+	case status >= 500:
+		return slog.LevelError
+	case status >= 400:
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
+}
 
-	// Add response headers (scrubbed).
-	if len(resp.Header) > 0 {
-		hdr := scrubHeaders(resp.Header, cfg.HeaderDenylist, cfg.HeaderAllowlist)
-		for k, vv := range hdr {
-			for _, v := range vv {
-				attrs = append(attrs, slog.String("http.response.header."+strings.ToLower(k), v))
-			}
+// appendHeaderAttrs scrubs header and appends one attr per value with the given key prefix.
+func appendHeaderAttrs(attrs []slog.Attr, header http.Header, prefix string, denylist, allowlist []string) []slog.Attr {
+	if len(header) == 0 {
+		return attrs
+	}
+	scrubbed := scrubHeaders(header, denylist, allowlist)
+	for k, vv := range scrubbed {
+		for _, v := range vv {
+			attrs = append(attrs, slog.String(prefix+strings.ToLower(k), v))
 		}
 	}
-
-	// Add response body if captured.
-	if len(resp.Body) > 0 {
-		attrs = append(attrs, slog.String("http.response.body", string(resp.Body)))
-		attrs = append(attrs, slog.Bool("http.response.body.truncated", resp.BodyTruncated))
-	}
-
-	// Add duration.
-	attrs = append(attrs, slog.Duration("http.duration", resp.Duration))
-
-	// Emit the log record.
-	level := slog.LevelInfo
-	if status >= 500 {
-		level = slog.LevelError
-	} else if status >= 400 && status < 500 {
-		level = slog.LevelWarn
-	}
-
-	cfg.Logger.LogAttrs(ctx, level, "http_request", attrs...)
+	return attrs
 }
 
 // scrubQueryParams returns a URL with sensitive query parameters replaced with ***.
