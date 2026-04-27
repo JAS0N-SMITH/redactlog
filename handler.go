@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JAS0N-SMITH/redactlog/httpmw"
 	"github.com/JAS0N-SMITH/redactlog/redact"
 )
 
@@ -21,6 +22,8 @@ type Handler struct {
 	engine *redact.Engine
 	groups []string
 	clock  func() time.Time
+	logger *slog.Logger
+	http   HTTPConfig
 }
 
 // Build validates cfg, compiles the redaction engine, and returns a Handler
@@ -54,11 +57,81 @@ func (c *Config) Build() (*Handler, error) {
 		clock = time.Now
 	}
 
+	// Apply defaults and validate HTTPConfig.
+	httpCfg, err := applyHTTPConfigDefaults(c.HTTP)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Handler{
 		inner:  c.Logger.Handler(),
 		engine: engine,
 		clock:  clock,
+		logger: c.Logger,
+		http:   httpCfg,
 	}, nil
+}
+
+// applyHTTPConfigDefaults applies default values to HTTPConfig and validates bounds.
+func applyHTTPConfigDefaults(cfg HTTPConfig) (HTTPConfig, error) {
+	if cfg.MaxBodyBytes == 0 {
+		cfg.MaxBodyBytes = 65536 // 64 KiB default
+	}
+	if cfg.MaxBodyBytes < 1024 || cfg.MaxBodyBytes > 1048576 {
+		return HTTPConfig{}, fmt.Errorf("MaxBodyBytes=%d out of range [1024, 1048576]", cfg.MaxBodyBytes)
+	}
+
+	// Default content types if not overridden.
+	if len(cfg.ContentTypes) == 0 {
+		cfg.ContentTypes = []string{
+			"application/json",
+			"application/x-www-form-urlencoded",
+			"application/xml",
+			"text/xml",
+			"text/plain",
+			"application/vnd.api+json",
+			"application/problem+json",
+		}
+	}
+
+	// Default header denylist if not overridden (and no allowlist set).
+	if len(cfg.HeaderAllowlist) == 0 && len(cfg.HeaderDenylist) == 0 {
+		cfg.HeaderDenylist = []string{
+			"authorization",
+			"cookie",
+			"set-cookie",
+			"proxy-authorization",
+			"x-api-key",
+			"x-auth-token",
+			"x-csrf-token",
+			"x-xsrf-token",
+			"x-session-id",
+			"x-forwarded-authorization",
+		}
+	}
+
+	// Default sensitive query params if empty.
+	if len(cfg.SensitiveQueryParams) == 0 {
+		cfg.SensitiveQueryParams = []string{
+			"token",
+			"access_token",
+			"api_key",
+			"key",
+			"signature",
+		}
+	}
+
+	// Default request ID header name.
+	if cfg.RequestIDHeader == "" {
+		cfg.RequestIDHeader = "X-Request-ID"
+	}
+
+	// Default generate request ID is true.
+	if !cfg.GenerateRequestID {
+		cfg.GenerateRequestID = true
+	}
+
+	return cfg, nil
 }
 
 // Enabled delegates to the inner handler. Redaction is orthogonal to level
@@ -155,12 +228,29 @@ func (h *Handler) Logger() *slog.Logger {
 }
 
 // Middleware returns an http.Handler middleware that wraps the given handler
-// with request/response logging. This is a stub for M3; the full
-// implementation with body capture and header scrubbing is wired in M4.
+// with request/response logging via this Handler's slog.Handler wrapper.
+// The middleware captures request/response metadata and bodies (configurable),
+// scrubs headers per the allowlist/denylist, and logs via h.Logger().
 func (h *Handler) Middleware() func(http.Handler) http.Handler {
 	if h == nil {
 		return func(next http.Handler) http.Handler { return next }
 	}
-	// M3 stub: pass through. M4 implements the full middleware.
-	return func(next http.Handler) http.Handler { return next }
+
+	cfg := httpmw.Config{
+		Logger:               h.logger,
+		Redactor:             h.engine,
+		CaptureRequestBody:   h.http.CaptureRequestBody,
+		CaptureResponseBody:  h.http.CaptureResponseBody,
+		MaxBodyBytes:         h.http.MaxBodyBytes,
+		ContentTypes:         h.http.ContentTypes,
+		HeaderDenylist:       h.http.HeaderDenylist,
+		HeaderAllowlist:      h.http.HeaderAllowlist,
+		SensitiveQueryParams: h.http.SensitiveQueryParams,
+		RequestIDHeader:      h.http.RequestIDHeader,
+		GenerateRequestID:    h.http.GenerateRequestID,
+		SkipPaths:            h.http.SkipPaths,
+		Clock:                h.clock,
+	}
+
+	return httpmw.Middleware(cfg)
 }
