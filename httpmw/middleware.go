@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	"log/slog"
+	mrand "math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,11 +13,16 @@ import (
 	"strings"
 	"time"
 
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+
 	"github.com/JAS0N-SMITH/redactlog/redact"
 )
 
 // randReader is the random source for UUIDv4 generation.
 var randReader = rand.Reader
+
+// randFloat returns a random float64 in [0, 1). Replaced in tests for determinism.
+var randFloat = mrand.Float64
 
 // Config holds HTTP middleware configuration.
 type Config struct {
@@ -56,8 +62,24 @@ type Config struct {
 	// SkipPaths lists request paths to skip logging (exact match).
 	SkipPaths []string
 
+	// SampleRate, when in (0, 1), logs only that fraction of requests at random.
+	// A value of 0 or 1 (and any value outside (0,1)) logs every request.
+	SampleRate float64
+
 	// Clock injects a time source for deterministic testing.
 	Clock func() time.Time
+
+	// RouteFunc, if non-nil, is called after the handler returns to obtain the
+	// matched route template (e.g. "/users/:id"). The return value is emitted as
+	// http.route. Framework adapters (e.g. the gin adapter) use this to surface
+	// the route template, which is only known after the handler chain runs.
+	RouteFunc func(*http.Request) string
+
+	// StatusFunc, if non-nil and the status captured via httpsnoop is 0, is
+	// called to obtain the response status code. Needed for frameworks (e.g.
+	// gin) whose ResponseWriter tracks status internally and may not call the
+	// underlying http.ResponseWriter.WriteHeader through httpsnoop's wrapper.
+	StatusFunc func() int
 }
 
 // Middleware returns an http.Handler middleware that captures request/response metadata
@@ -76,6 +98,14 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 			if slices.Contains(cfg.SkipPaths, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
+			}
+
+			// Probabilistic sampling: skip logging for (1-SampleRate) fraction.
+			if rate := cfg.SampleRate; rate > 0 && rate < 1 {
+				if randFloat() > rate {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 
 			ctx := r.Context()
@@ -126,73 +156,86 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 
 // logRequest emits a log record for the request/response pair.
 func logRequest(ctx context.Context, cfg Config, r *http.Request, scrubbedURL *url.URL, reqID string, reqBody []byte, reqBodyTruncated bool, resp *capturedResponse) {
-	// Build attributes for the log record.
 	attrs := []slog.Attr{
-		slog.String("http.request.method", r.Method),
-		slog.String("url.path", scrubbedURL.Path),
-		slog.String("server.address", r.Host),
-		slog.String("client.address", clientAddr(r)),
-		slog.String("network.protocol.version", r.Proto),
-		slog.String("user_agent.original", r.Header.Get("User-Agent")),
+		slog.String(string(semconv.HTTPRequestMethodKey), r.Method),
+		slog.String(string(semconv.URLPathKey), scrubbedURL.Path),
+		slog.String(string(semconv.ServerAddressKey), r.Host),
+		slog.String(string(semconv.ClientAddressKey), clientAddr(r)),
+		slog.String(string(semconv.NetworkProtocolVersionKey), r.Proto),
+		slog.String(string(semconv.UserAgentOriginalKey), r.Header.Get("User-Agent")),
 	}
 
-	// Add request ID if present.
+	if cfg.RouteFunc != nil {
+		if route := cfg.RouteFunc(r); route != "" {
+			attrs = append(attrs, slog.String(string(semconv.HTTPRouteKey), route))
+		}
+	}
 	if reqID != "" {
 		attrs = append(attrs, slog.String("http.request.id", reqID))
 	}
-
-	// Add query if present.
 	if scrubbedURL.RawQuery != "" {
 		attrs = append(attrs, slog.String("url.query", scrubbedURL.RawQuery))
 	}
 
-	// Add request headers (scrubbed).
-	if len(r.Header) > 0 {
-		hdr := scrubHeaders(r.Header, cfg.HeaderDenylist, cfg.HeaderAllowlist)
-		for k, vv := range hdr {
-			for _, v := range vv {
-				attrs = append(attrs, slog.String("http.request.header."+strings.ToLower(k), v))
-			}
-		}
-	}
+	attrs = appendHeaderAttrs(attrs, r.Header, "http.request.header.", cfg.HeaderDenylist, cfg.HeaderAllowlist)
 
-	// Add request body if captured.
 	if len(reqBody) > 0 {
 		attrs = append(attrs, slog.String("http.request.body", string(reqBody)))
 		attrs = append(attrs, slog.Bool("http.request.body.truncated", reqBodyTruncated))
 	}
 
-	// Add response status.
-	attrs = append(attrs, slog.Int("http.response.status_code", resp.Status))
+	status := resolveStatus(cfg, resp)
+	attrs = append(attrs, slog.Int(string(semconv.HTTPResponseStatusCodeKey), status))
 
-	// Add response headers (scrubbed).
-	if len(resp.Header) > 0 {
-		hdr := scrubHeaders(resp.Header, cfg.HeaderDenylist, cfg.HeaderAllowlist)
-		for k, vv := range hdr {
-			for _, v := range vv {
-				attrs = append(attrs, slog.String("http.response.header."+strings.ToLower(k), v))
-			}
-		}
-	}
+	attrs = appendHeaderAttrs(attrs, resp.Header, "http.response.header.", cfg.HeaderDenylist, cfg.HeaderAllowlist)
 
-	// Add response body if captured.
 	if len(resp.Body) > 0 {
 		attrs = append(attrs, slog.String("http.response.body", string(resp.Body)))
 		attrs = append(attrs, slog.Bool("http.response.body.truncated", resp.BodyTruncated))
 	}
 
-	// Add duration.
 	attrs = append(attrs, slog.Duration("http.duration", resp.Duration))
 
-	// Emit the log record.
-	level := slog.LevelInfo
-	if resp.Status >= 500 {
-		level = slog.LevelError
-	} else if resp.Status >= 400 && resp.Status < 500 {
-		level = slog.LevelWarn
-	}
+	cfg.Logger.LogAttrs(ctx, logLevel(status), "http_request", attrs...)
+}
 
-	cfg.Logger.LogAttrs(ctx, level, "http_request", attrs...)
+// resolveStatus returns the HTTP response status, consulting StatusFunc and
+// defaulting to 200 when neither httpsnoop nor the framework captured one.
+func resolveStatus(cfg Config, resp *capturedResponse) int {
+	status := resp.Status
+	if status == 0 && cfg.StatusFunc != nil {
+		status = cfg.StatusFunc()
+	}
+	if status == 0 {
+		status = http.StatusOK
+	}
+	return status
+}
+
+// logLevel maps an HTTP status code to the appropriate slog level.
+func logLevel(status int) slog.Level {
+	switch {
+	case status >= 500:
+		return slog.LevelError
+	case status >= 400:
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// appendHeaderAttrs scrubs header and appends one attr per value with the given key prefix.
+func appendHeaderAttrs(attrs []slog.Attr, header http.Header, prefix string, denylist, allowlist []string) []slog.Attr {
+	if len(header) == 0 {
+		return attrs
+	}
+	scrubbed := scrubHeaders(header, denylist, allowlist)
+	for k, vv := range scrubbed {
+		for _, v := range vv {
+			attrs = append(attrs, slog.String(prefix+strings.ToLower(k), v))
+		}
+	}
+	return attrs
 }
 
 // scrubQueryParams returns a URL with sensitive query parameters replaced with ***.
