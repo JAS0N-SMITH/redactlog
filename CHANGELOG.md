@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-27
+
+### Added
+
+- `gin/middleware.go` — `New(h *redactlog.Handler) gin.HandlerFunc` thin adapter
+  bridging Gin's `*gin.Context` to `httpmw` internals. Injects Gin's route
+  template (`c.FullPath()`) as `http.route` post-`c.Next()` and reads Gin's
+  internal status via `c.Writer.Status()` (required because Gin's
+  `ResponseWriter` may not propagate `WriteHeader` through httpsnoop's hook).
+- `gin/middleware.go` — `NewWithConfig(cfg redactlog.Config) (gin.HandlerFunc, error)`
+  convenience constructor.
+- `handler_test.go` — `TestHandlerLogger`, `TestHandlerMiddleware`,
+  `TestHandlerMiddlewareWithRouteFunc`, `TestNilHandlerMiddleware` closing
+  coverage on the three primary stable API entry points.
+
+## [0.3.0] - 2026-04-26
+
+### Added
+
+- `httpmw/middleware.go` — `Middleware(cfg Config) func(http.Handler) http.Handler`
+  framework-agnostic net/http middleware. Captures request/response metadata and
+  bodies (configurable), scrubs headers per allow/deny-list, generates/propagates
+  `X-Request-ID`, and emits all required OTel semconv v1.26.0 attributes:
+  `http.request.method`, `http.response.status_code`, `url.path`, `server.address`,
+  `client.address`, `network.protocol.version`, `user_agent.original`.
+- `httpmw/body.go` — bounded request body tee using `io.LimitedReader` (N+1 for
+  truncation detection) and `io.MultiReader` to restore `r.Body` for downstream handlers.
+- `httpmw/response.go` — `httpsnoop.Wrap`-based response capture. Preserves
+  `http.Flusher`, `http.Hijacker`, `http.Pusher`, `io.ReaderFrom`, and
+  `http.ResponseController`. SSE (`text/event-stream`) short-circuits body
+  buffering on first Flush per ADR-006.
+- `httpmw/headers.go` — header scrubbing with allowlist/denylist modes using
+  `http.CanonicalHeaderKey` comparison.
+- `handler.go` — `Handler.Middleware()`, `Handler.MiddlewareWithRouteFunc()`,
+  `Handler.MiddlewareForGin()` wired to `httpmw.Middleware`.
+  `applyHTTPConfigDefaults` applies default deny list (authorization, cookie,
+  set-cookie, proxy-authorization, x-api-key, x-auth-token, x-csrf-token,
+  x-xsrf-token, x-session-id, x-forwarded-authorization) when no allowlist or
+  denylist is configured.
+- `options.go` — expanded functional option set: `WithRequestBody`,
+  `WithResponseBody`, `WithMaxBodyBytes`, `WithContentTypes`,
+  `WithHeaderDenylist`, `WithHeaderAllowlist`, `WithSensitiveQueryParams`,
+  `WithRequestIDHeader`, `WithGenerateRequestID`, `WithSkipPaths`.
+
 ## [0.2.0] - 2026-04-26
 
 ### Added
