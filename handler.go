@@ -58,17 +58,32 @@ func (c *Config) Build() (*Handler, error) {
 	}
 
 	// Apply defaults and validate HTTPConfig.
-	httpCfg := c.HTTP
-	if httpCfg.MaxBodyBytes == 0 {
-		httpCfg.MaxBodyBytes = 65536 // 64 KiB default
+	httpCfg, err := applyHTTPConfigDefaults(c.HTTP)
+	if err != nil {
+		return nil, err
 	}
-	if httpCfg.MaxBodyBytes < 1024 || httpCfg.MaxBodyBytes > 1048576 {
-		return nil, fmt.Errorf("MaxBodyBytes=%d out of range [1024, 1048576]", httpCfg.MaxBodyBytes)
+
+	return &Handler{
+		inner:  c.Logger.Handler(),
+		engine: engine,
+		clock:  clock,
+		logger: c.Logger,
+		http:   httpCfg,
+	}, nil
+}
+
+// applyHTTPConfigDefaults applies default values to HTTPConfig and validates bounds.
+func applyHTTPConfigDefaults(cfg HTTPConfig) (HTTPConfig, error) {
+	if cfg.MaxBodyBytes == 0 {
+		cfg.MaxBodyBytes = 65536 // 64 KiB default
+	}
+	if cfg.MaxBodyBytes < 1024 || cfg.MaxBodyBytes > 1048576 {
+		return HTTPConfig{}, fmt.Errorf("MaxBodyBytes=%d out of range [1024, 1048576]", cfg.MaxBodyBytes)
 	}
 
 	// Default content types if not overridden.
-	if len(httpCfg.ContentTypes) == 0 {
-		httpCfg.ContentTypes = []string{
+	if len(cfg.ContentTypes) == 0 {
+		cfg.ContentTypes = []string{
 			"application/json",
 			"application/x-www-form-urlencoded",
 			"application/xml",
@@ -80,8 +95,8 @@ func (c *Config) Build() (*Handler, error) {
 	}
 
 	// Default header denylist if not overridden (and no allowlist set).
-	if len(httpCfg.HeaderAllowlist) == 0 && len(httpCfg.HeaderDenylist) == 0 {
-		httpCfg.HeaderDenylist = []string{
+	if len(cfg.HeaderAllowlist) == 0 && len(cfg.HeaderDenylist) == 0 {
+		cfg.HeaderDenylist = []string{
 			"authorization",
 			"cookie",
 			"set-cookie",
@@ -96,8 +111,8 @@ func (c *Config) Build() (*Handler, error) {
 	}
 
 	// Default sensitive query params if empty.
-	if len(httpCfg.SensitiveQueryParams) == 0 {
-		httpCfg.SensitiveQueryParams = []string{
+	if len(cfg.SensitiveQueryParams) == 0 {
+		cfg.SensitiveQueryParams = []string{
 			"token",
 			"access_token",
 			"api_key",
@@ -107,29 +122,16 @@ func (c *Config) Build() (*Handler, error) {
 	}
 
 	// Default request ID header name.
-	if httpCfg.RequestIDHeader == "" {
-		httpCfg.RequestIDHeader = "X-Request-ID"
+	if cfg.RequestIDHeader == "" {
+		cfg.RequestIDHeader = "X-Request-ID"
 	}
 
 	// Default generate request ID is true.
-	if !httpCfg.GenerateRequestID && httpCfg.GenerateRequestID == false {
-		// Only explicitly set to false if user set it; default is true
-		// This logic is a bit odd since bool defaults to false. We'll just leave it as-is;
-		// if the user doesn't set it, it's false, which triggers the generation.
-		// Actually, looking at the config, the user sets GenerateRequestID via an option,
-		// so if they don't set it, it defaults to false in the struct. We need to change
-		// the default to true. Let's fix this by checking if the user explicitly set it.
-		// For now, we'll just default to true here if it's false (unset).
-		httpCfg.GenerateRequestID = true
+	if !cfg.GenerateRequestID {
+		cfg.GenerateRequestID = true
 	}
 
-	return &Handler{
-		inner:  c.Logger.Handler(),
-		engine: engine,
-		clock:  clock,
-		logger: c.Logger,
-		http:   httpCfg,
-	}, nil
+	return cfg, nil
 }
 
 // Enabled delegates to the inner handler. Redaction is orthogonal to level

@@ -2,6 +2,7 @@ package httpmw
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -31,10 +32,10 @@ func TestBodyCaptureTruncation(t *testing.T) {
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"response":"this is a very long response body"}`))
+		_, _ = w.Write([]byte(`{"response":"this is a very long response body"}`))
 	}))
 
-	req := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte(`{"request":"this is a very long request body"}`)))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/test", bytes.NewReader([]byte(`{"request":"this is a very long request body"}`)))
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
@@ -73,12 +74,12 @@ func TestSSEFlusherPreserved(t *testing.T) {
 
 		// Write and flush several times to simulate streaming.
 		for i := 0; i < 3; i++ {
-			w.Write([]byte("data: event " + string(rune(48+i)) + "\n\n"))
+			_, _ = w.Write([]byte("data: event " + string(rune(48+i)) + "\n\n"))
 			flusher.Flush()
 		}
 	}))
 
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/events", nil)
 	w := httptest.NewRecorder()
 
 	// httptest.ResponseRecorder doesn't support Flusher, so this test verifies
@@ -110,7 +111,7 @@ func TestHijackerPreserved(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/ws", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/ws", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -140,10 +141,10 @@ func TestHeaderDenylistScrubbing(t *testing.T) {
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("Cookie", "session=secret")
 	req.Header.Set("User-Agent", "test-agent")
@@ -185,7 +186,7 @@ func TestHeaderAllowlistOverride(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("User-Agent", "test-agent")
 	req.Header.Set("Custom-Header", "custom-value")
@@ -229,7 +230,7 @@ func TestQueryParamScrubbing(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test?token=secret123&api_key=secret456&user=alice", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test?token=secret123&api_key=secret456&user=alice", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -265,7 +266,7 @@ func TestSkipPaths(t *testing.T) {
 	}))
 
 	// Request to a skipped path.
-	reqSkipped := httptest.NewRequest("GET", "/health", nil)
+	reqSkipped := httptest.NewRequestWithContext(context.Background(), "GET", "/health", nil)
 	wSkipped := httptest.NewRecorder()
 	handler.ServeHTTP(wSkipped, reqSkipped)
 
@@ -276,7 +277,7 @@ func TestSkipPaths(t *testing.T) {
 
 	// Request to a non-skipped path should be logged.
 	logBuf.Reset()
-	reqNormal := httptest.NewRequest("GET", "/api/users", nil)
+	reqNormal := httptest.NewRequestWithContext(context.Background(), "GET", "/api/users", nil)
 	wNormal := httptest.NewRecorder()
 	handler.ServeHTTP(wNormal, reqNormal)
 
@@ -306,7 +307,7 @@ func TestRequestIDGeneration(t *testing.T) {
 	}))
 
 	// Request without a request ID.
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -342,7 +343,7 @@ func TestRequestIDPropagation(t *testing.T) {
 	}))
 
 	// Request with a request ID.
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.Header.Set("X-Request-ID", "my-request-id-123")
 
 	w := httptest.NewRecorder()
@@ -376,7 +377,7 @@ func TestBodyContentTypeFiltering(t *testing.T) {
 
 	// Request with JSON content type (should be captured).
 	logBuf.Reset()
-	reqJSON := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte(`{"key":"value"}`)))
+	reqJSON := httptest.NewRequestWithContext(context.Background(), "POST", "/test", bytes.NewReader([]byte(`{"key":"value"}`)))
 	reqJSON.Header.Set("Content-Type", "application/json")
 	wJSON := httptest.NewRecorder()
 	handler.ServeHTTP(wJSON, reqJSON)
@@ -387,7 +388,7 @@ func TestBodyContentTypeFiltering(t *testing.T) {
 
 	// Request with text/plain content type (should not be captured).
 	logBuf.Reset()
-	reqText := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte("plain text")))
+	reqText := httptest.NewRequestWithContext(context.Background(), "POST", "/test", bytes.NewReader([]byte("plain text")))
 	reqText.Header.Set("Content-Type", "text/plain")
 	wText := httptest.NewRecorder()
 	handler.ServeHTTP(wText, reqText)
@@ -424,7 +425,7 @@ func TestRedactorPassthrough(t *testing.T) {
 	}))
 
 	// Request with a field matching the redaction rule.
-	req := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte(`{"secret":"my-secret-value"}`)))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/test", bytes.NewReader([]byte(`{"secret":"my-secret-value"}`)))
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
@@ -468,7 +469,7 @@ func TestStatusCodeLogging(t *testing.T) {
 				w.WriteHeader(tt.statusCode)
 			}))
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 
@@ -513,12 +514,12 @@ func TestSSEMultipleFlushesTrueStreaming(t *testing.T) {
 
 		// Write and flush multiple times to simulate SSE streaming.
 		for i := 0; i < 5; i++ {
-			w.Write([]byte("data: event " + string(rune(48+i)) + "\n\n"))
+			_, _ = w.Write([]byte("data: event " + string(rune(48+i)) + "\n\n"))
 			flusher.Flush()
 		}
 	}))
 
-	req := httptest.NewRequest("GET", "/stream", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/stream", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -540,12 +541,12 @@ func TestLargeBodyHandling(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
 
 	cfg := Config{
-		Logger:              logger,
-		Redactor:            nil,
-		CaptureRequestBody:  true,
-		ContentTypes:        []string{"text/plain"},
-		MaxBodyBytes:        100,
-		Clock:               nil,
+		Logger:             logger,
+		Redactor:           nil,
+		CaptureRequestBody: true,
+		ContentTypes:       []string{"text/plain"},
+		MaxBodyBytes:       100,
+		Clock:              nil,
 	}
 
 	mw := Middleware(cfg)
@@ -556,7 +557,7 @@ func TestLargeBodyHandling(t *testing.T) {
 
 	// Create a large body (1KB).
 	largeBody := strings.Repeat("x", 1024)
-	req := httptest.NewRequest("POST", "/upload", strings.NewReader(largeBody))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/upload", strings.NewReader(largeBody))
 	req.Header.Set("Content-Type", "text/plain")
 
 	w := httptest.NewRecorder()
@@ -592,7 +593,7 @@ func TestClientAddressExtraction(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "192.0.2.100:12345"
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -622,7 +623,7 @@ func TestXForwardedForHeader(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.Header.Set("X-Forwarded-For", "203.0.113.25, 198.51.100.178")
 	req.RemoteAddr = "192.0.2.100:12345"
 	w := httptest.NewRecorder()
@@ -658,7 +659,7 @@ func TestResponseDurationLogging(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -688,7 +689,7 @@ func isValidUUID(s string) bool {
 			return false
 		}
 		for _, ch := range part {
-			if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+			if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') {
 				return false
 			}
 		}

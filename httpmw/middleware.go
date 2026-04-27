@@ -109,7 +109,7 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 			// Wrap response writer.
 			respStart := cfg.Clock()
 			capturedResp := &capturedResponse{}
-			wrappedWriter := wrapResponseWriter(w, capturedResp, cfg.MaxBodyBytes, cfg.CaptureResponseBody, cfg.ContentTypes)
+			wrappedWriter := wrapResponseWriter(w, capturedResp, cfg.MaxBodyBytes, cfg.CaptureResponseBody)
 
 			// Call the handler.
 			r = r.WithContext(ctx)
@@ -229,16 +229,6 @@ func contentTypeAllowed(ct string, allowed []string) bool {
 		}
 	}
 	return false
-}
-
-// isMultipartContent checks if the content type is multipart (form data, mixed, etc).
-func isMultipartContent(ct string) bool {
-	if ct == "" {
-		return false
-	}
-	parts := strings.Split(ct, ";")
-	mediaType := strings.TrimSpace(parts[0])
-	return strings.HasPrefix(strings.ToLower(mediaType), "multipart/")
 }
 
 // clientAddr extracts the client IP address from the request.

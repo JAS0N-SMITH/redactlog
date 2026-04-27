@@ -30,7 +30,7 @@ func isStreamingContentType(ct string) bool {
 // Uses httpsnoop.Wrap to preserve http.Flusher, http.Hijacker, http.Pusher, io.ReaderFrom,
 // and http.ResponseController interfaces per ADR-003.
 // Detects streaming responses (SSE) and disables body buffering for them.
-func wrapResponseWriter(w http.ResponseWriter, captured *capturedResponse, maxBodyBytes int, captureBody bool, contentTypes []string) http.ResponseWriter {
+func wrapResponseWriter(w http.ResponseWriter, captured *capturedResponse, maxBodyBytes int, captureBody bool) http.ResponseWriter {
 	captured.Header = make(http.Header)
 
 	hooks := httpsnoop.Hooks{
