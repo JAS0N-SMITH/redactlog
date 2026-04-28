@@ -1,0 +1,1 @@
+{"input":{"payment":{"pan":"4242424242424242","amount":150}},"want":{"payment":{"pan":"424242******4242","amount":150}}}

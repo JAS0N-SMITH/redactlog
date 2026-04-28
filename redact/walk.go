@@ -2,6 +2,25 @@ package redact
 
 import "log/slog"
 
+// applyDetectors passes a through each detector in sequence. Only called on
+// KindString attributes that survived path matching. The first detector to
+// fire updates the value; subsequent detectors run on the updated string so
+// all active detectors apply even when multiple patterns match.
+func (p *Program) applyDetectors(a slog.Attr) slog.Attr {
+	s := a.Value.String()
+	changed := false
+	for _, d := range p.detectors {
+		if rep, ok := d.Detect(s); ok {
+			s = rep
+			changed = true
+		}
+	}
+	if changed {
+		return slog.String(a.Key, s)
+	}
+	return a
+}
+
 // Default walk limits. They cap per-call work to prevent runaway recursion or
 // memory blowups on adversarial input. Both apply as hard caps; on excess the
 // walker fails closed (replaces the offending attribute with the censor token)
@@ -82,6 +101,12 @@ func (p *Program) walkAttr(a slog.Attr, states []*trieNode, depth int, st *walkS
 	}
 
 	if len(next) == 0 || a.Value.Kind() != slog.KindGroup {
+		// Apply content-based detectors to string leaves that survived path
+		// matching. Per ADR-007 detectors are opt-in; p.detectors is nil unless
+		// a preset (e.g. PCI) configured them.
+		if a.Value.Kind() == slog.KindString && len(p.detectors) > 0 {
+			return p.applyDetectors(a)
+		}
 		return a
 	}
 

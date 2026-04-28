@@ -10,9 +10,10 @@ import "fmt"
 // callers should treat it as opaque. Only [Program.String] is part of the
 // stable API.
 type Program struct {
-	root     *trieNode
-	censor   string
-	numRules int
+	root      *trieNode
+	censor    string
+	numRules  int
+	detectors []Detector // copied from Engine.detectors at construction
 }
 
 // String returns a short, fixed-format summary suitable for pprof labels.

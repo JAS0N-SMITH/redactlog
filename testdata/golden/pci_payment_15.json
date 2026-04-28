@@ -1,0 +1,1 @@
+{"input":{"order_id":"ORD-2024-001","notes":"Customer card 4111111111111111 was declined"},"want":{"order_id":"ORD-2024-001","notes":"Customer card 411111******1111 was declined"}}
