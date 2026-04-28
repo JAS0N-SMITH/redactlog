@@ -1,0 +1,1 @@
+{"input":{"number":"5500005555555559","type":"mastercard","exp":"12/28"},"want":{"number":"550000******5559","type":"mastercard","exp":"12/28"}}

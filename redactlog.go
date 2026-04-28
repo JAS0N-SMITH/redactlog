@@ -1,10 +1,13 @@
 package redactlog
 
+import "github.com/JAS0N-SMITH/redactlog/redact"
+
 // New creates a new Handler with the given options. It is a general-purpose
 // constructor that requires WithLogger to be set (via opts). Paths and
 // detectors are opt-in.
 //
-// Use NewPCI for the PCI compliance preset (adds PAN detection).
+// Use NewPCI for the PCI-DSS compliance preset (adds PAN detection and
+// common payment field redaction paths).
 func New(opts ...Option) (*Handler, error) {
 	cfg := &Config{
 		Censor: "",
@@ -16,15 +19,23 @@ func New(opts ...Option) (*Handler, error) {
 	return cfg.Build()
 }
 
-// NewPCI creates a new Handler preconfigured for PCI compliance. It includes
-// the PAN detector and default redaction paths for common payment field names.
-// The PCI preset is a stub in M3 (no paths or detectors); M6 wires the full
-// PCI ruleset and detector.
+// NewPCI creates a Handler preconfigured for PCI-DSS compliance. It merges
+// the following defaults before applying caller-supplied opts:
 //
-// M3 stub: NewPCI behaves identically to New(opts...). The full PCI preset
-// is wired in M6.
+//   - [redact.PANDetector] — content-based PAN detection (Luhn+regex, per ADR-007).
+//   - PCI redaction paths — common payment field names (cvv, pan, track data, etc.).
+//   - Header denylist additions — authorization, cookie, set-cookie.
+//
+// Caller-supplied opts are applied after the defaults, so they can extend or
+// override them (e.g., WithRedactPaths appends extra paths).
+//
+// WithLogger is still required; NewPCI returns ErrNoLogger if not provided.
 func NewPCI(opts ...Option) (*Handler, error) {
-	// M3 stub: defer full PCI paths and detector to M6.
-	// For now, NewPCI is identical to New.
-	return New(opts...)
+	defaults := make([]Option, 0, 3+len(opts))
+	defaults = append(defaults,
+		WithDetectors(redact.PANDetector()),
+		WithRedactPaths(pciRedactPaths...),
+		WithHeaderDenylist(pciHeaderDenylist...),
+	)
+	return New(append(defaults, opts...)...)
 }

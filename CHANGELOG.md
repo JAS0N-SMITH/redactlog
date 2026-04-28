@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-27
+
+### Added
+
+- `NewPCI()` now wires the full PCI-DSS preset: PAN/CVV/track-data redaction
+  paths (`*.cvv`, `*.cvv2`, `*.cvc`, `*.pin`, `*.pan`, `*.card_number`,
+  `*.cardNumber`, `*.track1`, `*.track2`, `*.card.number`, `*.card.cvv`,
+  `*.payment.card.*`, `*.payment_method.card.number`) plus header denylist
+  additions (`authorization`, `cookie`, `set-cookie`).
+- `redact.PANDetector()` — content-based PAN detection. Uses a 13–19 digit
+  regex with optional space/dash separators, validated by the Luhn algorithm,
+  and masks results to first-6/last-4 per PCI DSS 4.0 §3.4.1
+  (e.g., `4111111111111111` → `411111******1111`). Off by default (ADR-007);
+  enabled by `NewPCI`. `redact.Engine.Redact` and the slog handler path both
+  apply detectors to string leaves that survive path matching.
+- `redact.AuthHeaderDetector()` — strips the token from `Bearer <token>` HTTP
+  Authorization values, preserving the scheme name.
+- `internal/luhn` — branchless Luhn checksum implementation used by
+  `PANDetector`. Benchmarks at ≤ 50 ns for a 16-digit string.
+- `preset_pci.go` — unexported PCI path and header-denylist constants consumed
+  by `NewPCI`.
+- `redact/detect.go` — `PANDetector`, `AuthHeaderDetector` (both satisfy the
+  `redact.Detector` interface).
+- `testdata/golden/` — 20 synthesized payment-payload golden tests (zero false
+  negatives) and 20 non-payment golden tests (zero false positives), driven by
+  `redact/golden_test.go` with an `-update` flag for regeneration.
+
 ## [0.4.0] - 2026-04-27
 
 ### Added

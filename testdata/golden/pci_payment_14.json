@@ -1,0 +1,1 @@
+{"input":{"card_primary":"4111111111111111","card_backup":"4242424242424242","currency":"USD"},"want":{"card_primary":"411111******1111","card_backup":"424242******4242","currency":"USD"}}

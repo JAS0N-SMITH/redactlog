@@ -1,0 +1,1 @@
+{"input":{"invoice_id":"INV-001","amount":9999,"payment":{"method":"card","pan":"5500005555555559"}},"want":{"invoice_id":"INV-001","amount":9999,"payment":{"method":"card","pan":"550000******5559"}}}

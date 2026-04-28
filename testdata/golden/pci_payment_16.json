@@ -1,0 +1,1 @@
+{"input":{"user_id":"usr_123","email":"alice@example.test","stored_card":"4111111111111111"},"want":{"user_id":"usr_123","email":"alice@example.test","stored_card":"411111******1111"}}

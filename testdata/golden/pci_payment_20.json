@@ -1,0 +1,1 @@
+{"input":{"checkout":{"session":{"payment":{"card":{"number":"4111111111111111"}}}}},"want":{"checkout":{"session":{"payment":{"card":{"number":"411111******1111"}}}}}}

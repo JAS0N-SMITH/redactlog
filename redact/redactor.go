@@ -83,6 +83,7 @@ func New(paths []string, opts Options) (*Engine, error) {
 		detectors = make([]Detector, len(opts.Detectors))
 		copy(detectors, opts.Detectors)
 	}
+	prog.detectors = detectors
 	return &Engine{prog: prog, detectors: detectors}, nil
 }
 
@@ -158,8 +159,25 @@ func (e *Engine) RedactAttrInGroups(a slog.Attr, groups []string) slog.Attr {
 	return e.prog.walkAttr(a, states, 0, &st)
 }
 
+// applyDetectorsToString passes s through each detector in sequence, updating
+// s when a detector fires. It is used by [Engine.Redact] for string values
+// that survive path matching.
+func (e *Engine) applyDetectorsToString(s string) string {
+	for _, d := range e.detectors {
+		if rep, ok := d.Detect(s); ok {
+			s = rep
+		}
+	}
+	return s
+}
+
 // redactAny is the recursive walker behind [Engine.Redact]. The multi-state
 // design mirrors [Program.walkAttr]; see walk.go for the rationale.
+//
+// When states is nil (or empty), no path rules apply for this subtree. The
+// walk still recurses into nested containers so that detectors can reach all
+// string leaves. This is the "detector-only" mode entered whenever the trie
+// has no matching transition for a given key or array element.
 func (e *Engine) redactAny(v any, states []*trieNode, depth int, st *walkState) any {
 	st.nodes++
 	if st.nodes > st.maxNodes || depth > st.maxDepth {
@@ -167,39 +185,66 @@ func (e *Engine) redactAny(v any, states []*trieNode, depth int, st *walkState) 
 	}
 	switch x := v.(type) {
 	case map[string]any:
-		out := make(map[string]any, len(x))
-		for k, sub := range x {
-			next, leaf := advanceForKey(states, k)
-			switch {
-			case leaf:
-				out[k] = e.prog.censor
-			case len(next) == 0:
-				out[k] = sub
-			default:
-				out[k] = e.redactAny(sub, next, depth+1, st)
-			}
-		}
-		return out
+		return e.redactMap(x, states, depth, st)
 	case []any:
-		next, leaf := advanceForArray(states)
+		return e.redactSlice(x, states, depth, st)
+	default:
+		if s, ok := v.(string); ok && len(e.detectors) > 0 {
+			return e.applyDetectorsToString(s)
+		}
+		return v
+	}
+}
+
+// redactMap walks a map[string]any against the active trie states.
+func (e *Engine) redactMap(x map[string]any, states []*trieNode, depth int, st *walkState) any {
+	out := make(map[string]any, len(x))
+	for k, sub := range x {
+		if len(states) == 0 {
+			out[k] = e.redactAny(sub, nil, depth+1, st)
+			continue
+		}
+		next, leaf := advanceForKey(states, k)
 		switch {
 		case leaf:
-			out := make([]any, len(x))
-			for i := range out {
-				out[i] = e.prog.censor
-			}
-			return out
+			out[k] = e.prog.censor
 		case len(next) == 0:
-			return x
+			// Trie has no further match; switch to detector-only for this subtree.
+			out[k] = e.redactAny(sub, nil, depth+1, st)
+		default:
+			out[k] = e.redactAny(sub, next, depth+1, st)
 		}
+	}
+	return out
+}
+
+// redactSlice walks a []any against the active trie states.
+func (e *Engine) redactSlice(x []any, states []*trieNode, depth int, st *walkState) any {
+	if len(states) == 0 {
 		out := make([]any, len(x))
+		for i, sub := range x {
+			out[i] = e.redactAny(sub, nil, depth+1, st)
+		}
+		return out
+	}
+	next, leaf := advanceForArray(states)
+	out := make([]any, len(x))
+	switch {
+	case leaf:
+		for i := range out {
+			out[i] = e.prog.censor
+		}
+	case len(next) == 0:
+		// No array-wildcard rule; switch to detector-only for each element.
+		for i, sub := range x {
+			out[i] = e.redactAny(sub, nil, depth+1, st)
+		}
+	default:
 		for i, sub := range x {
 			out[i] = e.redactAny(sub, next, depth+1, st)
 		}
-		return out
-	default:
-		return v
 	}
+	return out
 }
 
 // advanceForKey advances active trie states by one named segment. Used by
