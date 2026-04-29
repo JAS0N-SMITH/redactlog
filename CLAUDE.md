@@ -45,7 +45,7 @@ It is **not** a general-purpose audit system. It does not do tamper-evident chai
 - Ecosystem gap analysis: `docs/gap-analysis.md`
 - Deep research notes: `docs/research.md`
 
-**Current milestone**: M6 — PCI preset + detectors (week 8/12)
+**Current milestone**: M7 — (week 9/12)
 
 **Project facts** (do not contradict without opening an ADR):
 
