@@ -20,13 +20,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Add fuzz targets here as you create them.
-        # Example entries Claude Code will populate:
-        # - { pkg: "./redact", target: "FuzzRedactWalk", time: "60s" }
         include:
-          - pkg: "./..."
-            target: ""
-            time: "10s"
+          - { pkg: "./redact", target: "FuzzDSLParse", time: "60s" }
+          - { pkg: "./redact", target: "FuzzRedactValue", time: "60s" }
+          - { pkg: "./redact", target: "FuzzLuhn", time: "60s" }
     steps:
       - uses: actions/checkout@v4
 
