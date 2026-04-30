@@ -3,12 +3,13 @@ package redact
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"pgregory.net/rapid"
 )
 
-// TestInvariant_Idempotent verifies Redact(Redact(x)) == Redact(x)
+// TestInvariant_Idempotent verifies Redact(Redact(x)) == Redact(x).
 func TestInvariant_Idempotent(t *testing.T) {
 	engine, _ := New([]string{"*.password", "user.*.token"}, Options{})
 
@@ -27,7 +28,7 @@ func TestInvariant_Idempotent(t *testing.T) {
 	})
 }
 
-// TestInvariant_NoGrowth checks that Redaction never expands the tree
+// TestInvariant_NoGrowth checks that Redaction never expands the tree.
 func TestInvariant_NoGrowth(t *testing.T) {
 	engine, _ := New([]string{"*"}, Options{})
 
@@ -44,7 +45,7 @@ func TestInvariant_NoGrowth(t *testing.T) {
 	})
 }
 
-// TestInvariant_SecretNeverLeaks checks that a seed string never appears unredacted
+// TestInvariant_SecretNeverLeaks checks that a seed string never appears in plain text.
 func TestInvariant_SecretNeverLeaks(t *testing.T) {
 	engine, _ := New([]string{"*.password"}, Options{})
 
@@ -59,15 +60,45 @@ func TestInvariant_SecretNeverLeaks(t *testing.T) {
 	})
 }
 
-// Use rapid to generate random nested maps/slices/strings
 func genRandomValue(t *rapid.T) any {
-	// Pseudo-code; implement based on your value shapes
-	return rapid.MapOf(
-		rapid.StringMatching(`[a-z]{5,10}`),
-		rapid.Just(map[string]any{"value": "data"})).Draw(t, "randomValue")
+	depth := rapid.IntRange(0, 3).Draw(t, "depth")
+	return genValue(t, depth, "v")
 }
 
-// Recursively count the number of attributes in a nested structure
+// genValue recursively builds maps, slices, and scalar leaves up to depth levels deep.
+func genValue(t *rapid.T, depth int, label string) any {
+	if depth == 0 {
+		switch rapid.IntRange(0, 2).Draw(t, label+"_leafKind") {
+		case 0:
+			return rapid.StringMatching(`[a-zA-Z0-9]{1,20}`).Draw(t, label+"_str")
+		case 1:
+			return rapid.Int().Draw(t, label+"_int")
+		default:
+			return rapid.Bool().Draw(t, label+"_bool")
+		}
+	}
+	switch rapid.IntRange(0, 2).Draw(t, label+"_kind") {
+	case 0: // map
+		n := rapid.IntRange(0, 4).Draw(t, label+"_n")
+		m := make(map[string]any, n)
+		for i := range n {
+			k := rapid.StringMatching(`[a-z]{3,8}`).Draw(t, fmt.Sprintf("%s_k%d", label, i))
+			m[k] = genValue(t, depth-1, fmt.Sprintf("%s_%d", label, i))
+		}
+		return m
+	case 1: // slice
+		n := rapid.IntRange(0, 3).Draw(t, label+"_n")
+		s := make([]any, n)
+		for i := range s {
+			s[i] = genValue(t, depth-1, fmt.Sprintf("%s_%d", label, i))
+		}
+		return s
+	default: // scalar leaf
+		return rapid.StringMatching(`[a-zA-Z0-9]{1,20}`).Draw(t, label+"_str")
+	}
+}
+
+// Recursively count the number of attributes in a nested structure.
 func countAttrs(v any) int {
 	count := 0
 	switch val := v.(type) {

@@ -35,9 +35,9 @@ func FuzzDSLParse(f *testing.F) {
 
 func FuzzRedactValue(f *testing.F) {
 	// Seed with slog.Value shapes
-	f.Add(`{"password":"secret"}`)
-	f.Add(`[1, 2, 3]`)
-	f.Add(`{"nested": {"key": "value"}}`)
+	f.Add([]byte(`{"password":"secret"}`))
+	f.Add([]byte(`[1, 2, 3]`))
+	f.Add([]byte(`{"nested": {"key": "value"}}`))
 
 	engine, _ := New([]string{"*.password", "nested.key"}, Options{Censor: "***"})
 

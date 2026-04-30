@@ -11,8 +11,7 @@ import (
 
 var updateGolden = flag.Bool("update", false, "update golden files")
 
-// CompareGolden reads `testdata/golden/<name>.json`, compares it to `got`,
-// and updates if -update is set.
+// CompareGolden reads `testdata/golden/<name>.json`, compares it to `got`, and updates if -update is set.
 func CompareGolden(t *testing.T, name string, got any) {
 	t.Helper()
 
@@ -22,7 +21,7 @@ func CompareGolden(t *testing.T, name string, got any) {
 	gotBytes = append(gotBytes, '\n')
 
 	if *updateGolden {
-		_ = os.WriteFile(path, gotBytes, 0o644)
+		_ = os.WriteFile(path, gotBytes, 0o600)
 		return
 	}
 
