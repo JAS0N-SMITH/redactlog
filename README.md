@@ -31,15 +31,21 @@ golangci-lint fmt
 
 # Coverage
 go test -race -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out           # open in browser
-go tool cover -func=coverage.out | tail -1  # summary line
+# open in browser
+go tool cover -html=coverage.out  
+# summary line
+go tool cover -func=coverage.out | tail -1  
 
 # Benchmarks (local, for benchstat before/after)
 go test -run=^$ -bench=. -benchmem -count=10 ./redact > bench-before.txt
 # ... make changes ...
 go test -run=^$ -bench=. -benchmem -count=10 ./redact > bench-after.txt
+# first time, install benchstat
 go install golang.org/x/perf/cmd/benchstat@latest
+# then compare
 benchstat bench-before.txt bench-after.txt
+# full script to run locally
+cd redactlog && ./bench/benchmark.sh
 
 # Fuzz a single target locally
 go test -run=^$ -fuzz=FuzzRedactWalk -fuzztime=30s ./redact
