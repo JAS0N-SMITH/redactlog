@@ -68,11 +68,10 @@ func FuzzLuhn(f *testing.F) {
 	f.Add("4111111111111111") // valid test card
 	f.Add("4242424242424242") // valid test card
 	f.Add("1234567890123456") // invalid card
-	f.Add("")				  // empty string
+	f.Add("")                 // empty string
 
 	f.Fuzz(func(t *testing.T, input string) {
 		// Should not panic on any input
 		_ = luhn.Valid(input)
 	})
 }
-

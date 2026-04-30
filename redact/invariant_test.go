@@ -64,7 +64,7 @@ func genRandomValue(t *rapid.T) any {
 	// Pseudo-code; implement based on your value shapes
 	return rapid.MapOf(
 		rapid.StringMatching(`[a-z]{5,10}`),
-		rapid.Just(map[string]any{"value": "data"}),).Draw(t, "randomValue")
+		rapid.Just(map[string]any{"value": "data"})).Draw(t, "randomValue")
 }
 
 // Recursively count the number of attributes in a nested structure
