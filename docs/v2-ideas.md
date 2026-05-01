@@ -11,6 +11,11 @@ Proposer: <github handle or "internal">
 Why v2: <one sentence>
 ```
 
+## IIN-range sanity check in PANDetector
+Date: 2026-04-30
+Proposer: internal
+Why v2: M6 roadmap listed IIN-range (Visa 4, MC 51-55 / 2221-2720, Amex 34/37, Discover 6011 / 622126-622925 / 644-649 / 65) as a risk mitigation for false positives. The negative golden corpus (20 cases: phone numbers, SSNs, UUIDs, timestamps, sequential/all-ones/all-nines 16-digit strings) shows zero false positives with regex+Luhn alone. Luhn already provides strong rejection of random numeric sequences. IIN-range adds implementation complexity for unconfirmed benefit in v1; defer to v2 once production usage patterns emerge.
+
 ## redact.MustNew and redact.Engine.With composition helpers
 Date: 2026-04-24
 Proposer: internal
