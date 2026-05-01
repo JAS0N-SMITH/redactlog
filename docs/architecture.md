@@ -2,6 +2,8 @@
 
 `redactlog` is a redaction-first HTTP logging middleware for Go services in regulated domains. **v1 ships a compile-once path-DSL redactor, a Gin + `net/http` middleware pair, a `slog.Handler` wrapper that composes in front of the caller's logger, safe-by-default body capture built on `felixge/httpsnoop`, and one PCI preset.** Everything else — audit chains, Merkle proofs, multi-framework adapters, vendor exporters — is explicitly out of scope and deferred to v2. This document is the canonical design reference for implementing v1.
 
+**ADR index:** [ADR-001](ADR-001-slog-handler-wrapper.md) · [ADR-002](ADR-002-pino-style-dsl.md) · [ADR-003](ADR-003-httpsnoop-dependency.md) · [ADR-004](ADR-004-gin-subpackage.md) · [ADR-005](ADR-005-context-attrs-inline.md) · [ADR-006](ADR-006-head-truncation.md) · [ADR-007](ADR-007-regex-detection-opt-in.md) · [ADR-008](ADR-008-single-censor-token.md)
+
 Target Go version: **1.22+** (for `slog` maturity and `slices`). License recommendation: **Apache 2.0** (patent grant matters for enterprise adoption in fintech/healthtech; see §15).
 
 ---

@@ -67,3 +67,45 @@ func ExampleNew() {
 		panic("expected api.endpoint to be '/v1/pay'")
 	}
 }
+
+// ExampleNewPCI demonstrates the PCI compliance preset.
+// It shows how to wire the PCI preset, which enables PAN detection,
+// CVV/track redaction, and auth header scrubbing without manual path
+// configuration.
+func ExampleNewPCI() {
+	var buf bytes.Buffer
+	inner := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	h, err := redactlog.NewPCI(
+		redactlog.WithLogger(inner),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	logger := h.Logger()
+	logger.Info("payment_processed",
+		slog.String("pan", "4111111111111111"),
+		slog.String("cvv", "123"),
+		slog.String("amount", "99.00"),
+	)
+
+	var rec map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &rec); err != nil {
+		panic(err)
+	}
+
+	// Verify PCI preset redactions:
+	// PAN should be masked to first-6/last-4 per PCI DSS 4.0
+	// CVV should be fully redacted to "***"
+	// amount should pass through unchanged
+	if rec["pan"].(string) != "411111******1111" {
+		panic("expected PAN to be masked to first-6/last-4")
+	}
+	if rec["cvv"].(string) != "***" {
+		panic("expected CVV to be redacted")
+	}
+	if rec["amount"].(string) != "99.00" {
+		panic("expected amount to pass through")
+	}
+}

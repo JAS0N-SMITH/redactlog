@@ -1,0 +1,57 @@
+version: 2
+
+project_name: redactlog
+
+# Library mode: no binary artifacts. goreleaser creates the GitHub Release,
+# attaches checksums and SBOM, and generates grouped changelog notes.
+builds:
+  - skip: true
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?: '
+      order: 0
+    - title: Fixes
+      regexp: '^fix(\(.+\))?: '
+      order: 1
+    - title: Performance
+      regexp: '^perf(\(.+\))?: '
+      order: 2
+    - title: Documentation
+      regexp: '^docs(\(.+\))?: '
+      order: 3
+    - title: Tests
+      regexp: '^test(\(.+\))?: '
+      order: 4
+    - title: Maintenance
+      regexp: '^(chore|refactor|bench|ci)(\(.+\))?: '
+      order: 5
+  filters:
+    exclude:
+      - '^Merge pull request'
+      - '^Merge branch'
+
+checksum:
+  name_template: 'checksums.txt'
+
+sbom:
+  - artifacts: archive
+
+release:
+  github:
+    owner: JAS0N-SMITH
+    name: redactlog
+  name_template: "v{{ .Version }}"
+  header: |
+    ## redactlog {{ .Tag }}
+
+    A redaction-first slog.Handler wrapper and HTTP middleware for Go services
+    in regulated industries. See [README](https://github.com/JAS0N-SMITH/redactlog#readme)
+    and [BENCHMARKS.md](https://github.com/JAS0N-SMITH/redactlog/blob/main/BENCHMARKS.md).
+  footer: |
+    **Full changelog**: https://github.com/JAS0N-SMITH/redactlog/blob/main/CHANGELOG.md
+
+    **Install**: `go get github.com/JAS0N-SMITH/redactlog@{{ .Tag }}`
