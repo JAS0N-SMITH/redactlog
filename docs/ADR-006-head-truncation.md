@@ -25,3 +25,8 @@ Ring buffer support is deferred to v2 behind `WithBodyRingBuffer(headN, tailM in
 - Users debugging errors that appear only in response trailers will not see those bytes; they must rely on their application's own error logging.
 - `BodyTruncated bool` on `CapturedRequest` and `CapturedResponse` gives users a signal that truncation occurred, so they can log separately if needed.
 - `internal/ringbuf/placeholder.go` exists as an explicit marker; contributors must not wire it in without a v2 ADR.
+
+## See also
+
+- **ADR-002**: Head-truncated bodies are redacted via the DSL walker.
+- **ADR-003**: Body capture uses httpsnoop hooks to intercept response bytes.

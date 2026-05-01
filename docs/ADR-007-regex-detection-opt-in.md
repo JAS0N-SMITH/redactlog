@@ -23,3 +23,7 @@ Regex-based detection is **off by default**. `Config.Detectors` is nil when `New
 - `NewPCI()` is the one-line upgrade: switching from `New()` to `NewPCI()` automatically enables PAN scanning plus PCI-appropriate path defaults.
 - Third-party detectors implementing the `Detector` interface can be added via `WithDetectors(...)` without any changes to the core engine.
 - Per-detector false-positive risk is owned by the detector implementation; `PANDetector` uses Luhn validation to minimize false positives.
+
+## See also
+
+- **ADR-008**: All detections (whether path-based or content-based) are replaced with a single censor token.

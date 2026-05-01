@@ -149,7 +149,7 @@ If W12 slips, v1.0.0 tags land by end of W14. That's the ceiling.
 - **Dependencies.** M1–M8.
 - **Deliverables.**
   - Godoc on every exported symbol (enforce via `revive` rule `exported`).
-  - Four runnable godoc `Example*` functions in `_test.go`: `ExampleNewHandler`, `Example_httpmw`, `Example_gin`, `ExampleRedactor_With`.
+  - Four runnable godoc `Example*` functions in `_test.go`: `ExampleNew` (root package), `Example_httpmw`, `Example_gin`, `ExampleEngine_Redact` (redact package).
   - `README.md` sections: what it is, when to use it vs alternatives, quick-start (net/http), quick-start (Gin), PCI preset usage, performance summary (link to BENCHMARKS.md), status (`v1.0.0`), stability guarantees, a 3-line "future contributions" note pointing at Issues.
   - `docs/ADR-001.md` through `docs/ADR-008.md` finalized.
   - `docs/architecture.md` — single-page distillation of the design doc.

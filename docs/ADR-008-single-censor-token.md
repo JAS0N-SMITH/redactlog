@@ -27,3 +27,7 @@ Use a single default censor token `"***"` for all redactions. The token is user-
 - Matches Pino's common deployment convention (many `fast-redact` users choose `"***"` or `"**"`).
 - Debuggability trade-off: operators cannot tell from the log alone whether a field was redacted by path or by detector. Mitigation: internal telemetry under a reserved key records redaction counts by rule at DEBUG level (not surfaced in the main log line).
 - Users who need type-specific tokens use a custom `Detector` returning a named placeholder string; this is documented in the `redact` package godoc.
+
+## See also
+
+- **ADR-007**: Detectors are off by default; when activated (e.g., via `NewPCI()`), all detector matches use the single censor token.

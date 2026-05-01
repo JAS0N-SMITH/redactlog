@@ -24,3 +24,8 @@ Depend directly on `github.com/felixge/httpsnoop`. Use `httpsnoop.Wrap` with a `
 - Upstream benchmark shows ~500 ns overhead per wrap call — negligible compared to body-scanning cost.
 - Adds one direct dependency to `go.mod`. Any future upgrade to `httpsnoop` requires deliberate review (per §13 dependency discipline).
 - Vendoring is explicitly not done; upstream security fixes and interface additions are picked up by bumping the version.
+
+## See also
+
+- **ADR-004**: The Gin adapter leverages httpsnoop's response-writer hooks to capture status code from gin's ResponseWriter.
+- **ADR-006**: Body capture depends on httpsnoop hooks to read response body bytes without breaking streaming interfaces.

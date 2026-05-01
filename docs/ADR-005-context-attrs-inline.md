@@ -23,3 +23,7 @@ Implement the pattern inline in `context.go` (~20 lines). Export `SetAttrs(ctx, 
 - We own the code and can evolve the context key type without waiting for an upstream release.
 - If `slog-context` becomes the de-facto standard for this pattern (e.g., adopted by the Go team), we reconsider in v2. The migration would be a drop-in rename of `redactlog.SetAttrs` to the library's equivalent.
 - Users familiar with `samber/slog-context` will find `redactlog.SetAttrs` analogous; it is documented with a migration note for those coming from that library.
+
+## See also
+
+- **ADR-001**: The handler wrapper's `Handle` method extracts context-scoped attributes via `attrsFromCtx`.

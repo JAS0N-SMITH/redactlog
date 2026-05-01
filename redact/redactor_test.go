@@ -489,3 +489,43 @@ func ExampleNew() {
 	// The redacted value's "password" attr now holds "***" instead of
 	// "hunter2"; non-matching attrs round-trip unchanged.
 }
+
+// ExampleEngine_Redact demonstrates the Engine.Redact method on a map[string]any,
+// which is the body-capture pipeline used by the HTTP middleware.
+// It shows how path-based redaction and content-based detectors (like Luhn PAN detection)
+// work together on unstructured JSON data.
+func ExampleEngine_Redact() {
+	// Construct an Engine with PCI paths and the PAN detector.
+	e, err := New(
+		[]string{"payment.cvv", "payment.pin"},
+		Options{
+			Censor:    DefaultCensor,
+			Detectors: []Detector{PANDetector()},
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Simulate a payment request body (as map[string]any from json.Unmarshal).
+	body := map[string]interface{}{
+		"payment": map[string]interface{}{
+			"pan": "4111111111111111", // Matches via PAN detector (Luhn)
+			"cvv": "123",              // Matches via path "payment.cvv"
+			"pin": "5678",             // Matches via path "payment.pin"
+		},
+		"user": map[string]interface{}{
+			"name": "alice", // Does not match any path or detector
+		},
+	}
+
+	// Redact returns a redacted copy without mutating the original.
+	redacted := e.Redact(body)
+
+	// After redaction:
+	// - payment.pan → masked by configured Luhn detector behavior
+	// - payment.cvv → censored by path-based rules
+	// - payment.pin → censored by path-based rules
+	// - user.name → unchanged
+	_ = redacted
+}
