@@ -22,3 +22,8 @@ Implement a full `slog.Handler` wrapper (`redactlog.Handler`) that sits in front
 - Works with any downstream `slog.Handler` regardless of implementation.
 - Slightly more code than a `ReplaceAttr` shim; users who already use `ReplaceAttr` for formatting must layer ours in front (documented in README).
 - Requires correct implementation of all four handler methods; skipping `WithGroup` or `WithAttrs` would break `slogtest.TestHandler` conformance.
+
+## See also
+
+- **ADR-005**: Context-scoped attributes are injected by the handler wrapper during `Handle`.
+- **ADR-002**: The redaction engine (trie walker) is called from `Handle` and must preserve group context.

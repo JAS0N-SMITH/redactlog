@@ -29,3 +29,9 @@ Explicitly rejected: recursive descent (`**`), numeric array indices (`a[0]`), n
 - GJSON's filter syntax (`#[name=="x"]`) is unavailable; users needing per-element conditional redaction must use a custom `Detector`.
 - JSONPath's `$` prefix and `..` operator are not supported; engineers coming from JSON Schema may need to adjust.
 - Paths are compiled into a trie at `New()` time — runtime walk is a map lookup per segment, not a regex scan.
+
+## See also
+
+- **ADR-001**: The handler wrapper manages group context that the DSL path walker uses.
+- **ADR-006**: Head-truncation body capture invokes the DSL walker on the captured body.
+- **ADR-008**: All matches are replaced with a single censor token; the DSL does not affect the redaction output format.

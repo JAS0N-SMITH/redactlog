@@ -25,3 +25,8 @@ Create a dedicated `gin/` subpackage (`package gin`, imported as `redactgin` at 
 - `gin.BodyBytesKey` cache integration and `c.Copy()` goroutine guidance are documented in the `gin/` package godoc.
 - Panic recovery ordering (register `gin.Recovery()` after `redactgin.New(h)`) is documented; incorrect ordering causes the middleware to log a 200 on a panicking request.
 - Mirrors the layout used by `go.opentelemetry.io/contrib/instrumentation/*` for framework-specific adapters.
+
+## See also
+
+- **ADR-003**: The Gin adapter reuses httpsnoop hooks via the httpmw middleware.
+- **ADR-001**: The Gin adapter bridges to the slog.Handler wrapper in the root package.
