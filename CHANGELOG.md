@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - YYYY-MM-DD
+
+### Changed
+
+- LICENSE copyright line filled (Apache-2.0, copyright 2026 Jason Smith).
+- README install section added; ADR links corrected to match actual filenames.
+- docs/README.md created as docs index.
+
+## [0.9.0] - 2026-05-01
+
+### Added
+
+- Full documentation pass: architecture.md, all eight ADRs, README sections
+  (what, why, quick-start net/http, quick-start Gin, PCI preset, performance
+  summary, stability guarantees, contributing note).
+- Runnable godoc examples: ExampleNew (root), Example_httpmw, Example_gin,
+  ExampleEngine_Redact, ExampleNewPCI.
+- BENCHMARKS.md published with benchstat output and methodology.
+- SECURITY.md with vulnerability reporting channel and supported-versions table.
+- Dependabot enabled for gomod (weekly) and GitHub Actions (monthly).
+- CodeQL workflow added.
+
+## [0.8.0] - 2026-04-30
+
+### Added
+
+- `bench/` comparative benchmark module vs samber/slog-gin and samber/slog-http.
+- BENCHMARKS.md with benchstat output: redactlog ≤ 1.09× samber at zero redaction,
+  ≤ 1.97× at full PCI preset, ≤ 3× worst-case per DoD thresholds.
+
+## [0.7.0] - 2026-04-30
+
+### Added
+
+- Fuzz targets wired into CI: FuzzDSLParse, FuzzRedactValue, FuzzLuhn.
+- Seed corpora committed under testdata/fuzz/.
+- Property-based tests (pgregory.net/rapid) for DSL parser, walker, and Luhn.
+- Golden-file test framework for redact/ and httpmw/ output validation.
+
 ## [0.5.0] - 2026-04-27
 
 ### Added
