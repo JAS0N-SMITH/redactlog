@@ -519,13 +519,13 @@ func ExampleEngine_Redact() {
 		},
 	}
 
-	// Redact the body in-place.
+	// Redact returns a redacted copy without mutating the original.
 	redacted := e.Redact(body)
 
 	// After redaction:
-	// - payment.pan → "411111******1111" (Luhn detection + masking)
-	// - payment.cvv → "***" (path match)
-	// - payment.pin → "***" (path match)
-	// - user.name → "alice" (unchanged)
+	// - payment.pan → masked by configured Luhn detector behavior
+	// - payment.cvv → censored by path-based rules
+	// - payment.pin → censored by path-based rules
+	// - user.name → unchanged
 	_ = redacted
 }

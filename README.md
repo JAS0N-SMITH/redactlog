@@ -75,7 +75,7 @@ import (
 	"log/slog"
 	"github.com/gin-gonic/gin"
 	"github.com/JAS0N-SMITH/redactlog"
-	"github.com/JAS0N-SMITH/redactlog/gin"
+	redactgin "github.com/JAS0N-SMITH/redactlog/gin"
 )
 
 func main() {
@@ -85,7 +85,7 @@ func main() {
 	)
 	
 	r := gin.New()
-	r.Use(gin.New(h))           // redactlog middleware
+	r.Use(redactgin.New(h))     // redactlog middleware
 	r.Use(gin.Recovery())       // panic recovery *after* redactlog
 	
 	r.POST("/pay", handlePayment)

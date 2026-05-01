@@ -51,9 +51,19 @@ func ExampleNew() {
 	// user.password should be "***", not "hunter2"
 	// api.token should be "***", not "sk_live_abc123xyz"
 	// name and email should be unchanged
-	_ = user["name"].(string)     // "alice"
-	_ = user["email"].(string)    // "alice@example.test"
-	_ = user["password"].(string) // "***"
-	_ = api["token"].(string)     // "***"
-	_ = api["endpoint"].(string)  // "/v1/pay"
+	if user["name"].(string) != "alice" {
+		panic("expected user.name to be 'alice'")
+	}
+	if user["email"].(string) != "alice@example.test" {
+		panic("expected user.email to be 'alice@example.test'")
+	}
+	if user["password"].(string) != "***" {
+		panic("expected user.password to be '***'")
+	}
+	if api["token"].(string) != "***" {
+		panic("expected api.token to be '***'")
+	}
+	if api["endpoint"].(string) != "/v1/pay" {
+		panic("expected api.endpoint to be '/v1/pay'")
+	}
 }

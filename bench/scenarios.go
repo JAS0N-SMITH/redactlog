@@ -91,12 +91,15 @@ func DoRequest(b *testing.B, srv *httptest.Server, method, path, body string) {
 	var err error
 	if body != "" {
 		req, err = http.NewRequest(method, srv.URL+path, strings.NewReader(body))
+		if err != nil {
+			b.Fatal(err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 	} else {
 		req, err = http.NewRequest(method, srv.URL+path, nil)
-	}
-	if err != nil {
-		b.Fatal(err)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
