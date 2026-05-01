@@ -8,6 +8,22 @@
 
 ---
 
+## Install
+
+```bash
+go get github.com/JAS0N-SMITH/redactlog@latest
+```
+
+For the Gin adapter:
+
+```bash
+go get github.com/JAS0N-SMITH/redactlog/gin@latest
+```
+
+Requires Go 1.25.9 or later.
+
+---
+
 ## What it is
 
 `redactlog` is a `slog.Handler` wrapper and HTTP middleware for Go (net/http + Gin) that redacts sensitive fields — credit card numbers, tokens, email addresses, headers — before a log line is emitted. It uses a compile-once **Pino-style path DSL** to match field names (e.g., `user.password`, `payment.cards[*].pan`) and **content-based detectors** (Luhn validator for PANs, regex for Bearer tokens) to catch unstructured secrets. A single **PCI compliance preset** handles the most common redaction patterns; for custom schemas, build a handler with `New()` and `WithRedactPaths()`.
@@ -171,7 +187,14 @@ For contribution guidelines, see [CLAUDE.md](CLAUDE.md) (humans and Claude Code 
 ## Architecture and design
 
 - [docs/architecture.md](docs/architecture.md) — full v1 design document
-- [docs/ADR-001.md](docs/ADR-001.md) through [docs/ADR-008.md](docs/ADR-008.md) — architectural decision records
+- [ADR-001](docs/ADR-001-slog-handler-wrapper.md) — slog.Handler wrapper
+- [ADR-002](docs/ADR-002-pino-style-dsl.md) — Pino-style path DSL
+- [ADR-003](docs/ADR-003-httpsnoop-dependency.md) — httpsnoop dependency
+- [ADR-004](docs/ADR-004-gin-subpackage.md) — Gin subpackage isolation
+- [ADR-005](docs/ADR-005-context-attrs-inline.md) — inline context attrs
+- [ADR-006](docs/ADR-006-head-truncation.md) — head-truncation body capture
+- [ADR-007](docs/ADR-007-regex-detection-opt-in.md) — opt-in regex detection
+- [ADR-008](docs/ADR-008-single-censor-token.md) — single censor token
 - [BENCHMARKS.md](BENCHMARKS.md) — comparative benchmarks vs. zap/zerolog/logr
 
 ---
